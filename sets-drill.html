@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sets and operations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="drills.css">
+<style>
+.stage>*{width:100%}
+.given{font-family:var(--math);font-size:1.15rem;color:var(--muted);margin:0 0 .5rem;overflow-x:auto}
+.stage .formula{margin:0 0 1rem;overflow-x:auto}
+#warn{color:var(--bad)}
+.bigop{font-size:1.45em;line-height:1;vertical-align:-.12em}
+</style>
+</head>
+<body>
+<main class="page">
+
+<section id="start">
+  <header class="masthead">
+    <p class="eyebrow"><a href="index.html">Analysis I</a> · Chapter 3 · Sets and operations on sets</p>
+    <h1>Sets and operations</h1>
+    <p class="lede">Elements, set-builder notation, unions, intersections, differences, complements, intervals and indexed families, one question at a time. A miss pauses the clock and explains itself. Keys 1 to 4 pick an answer.</p>
+  </header>
+
+  <div class="settings">
+    <div class="field">
+      <span class="field-label">What to practise</span>
+      <div class="chips">
+        <label class="chip"><input type="checkbox" name="topic" value="member" checked>Elements and equality</label>
+        <label class="chip"><input type="checkbox" name="topic" value="builder" checked>Set-builder notation</label>
+        <label class="chip"><input type="checkbox" name="topic" value="ops" checked>Operations</label>
+        <label class="chip"><input type="checkbox" name="topic" value="intervals" checked>Intervals</label>
+        <label class="chip"><input type="checkbox" name="topic" value="families" checked>Indexed families</label>
+      </div>
+    </div>
+    <div class="field">
+      <span class="field-label">Round length</span>
+      <div class="chips">
+        <label class="chip"><input type="radio" name="len" value="60" checked>60 seconds</label>
+        <label class="chip"><input type="radio" name="len" value="120">2 minutes</label>
+        <label class="chip"><input type="radio" name="len" value="0">Untimed</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions"><button class="btn btn-lg" id="startBtn">Start round</button><span class="best" id="best"></span></div>
+  <p class="hint" id="warn" hidden>Pick at least one thing to practise.</p>
+  <p class="hint"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> pick an answer, <kbd>T</kbd> <kbd>F</kbd> on true-or-false questions, <kbd>Space</kbd> continues after a miss, <kbd>Esc</kbd> ends the round.</p>
+</section>
+
+<section id="play" hidden>
+  <div class="panel">
+    <div class="hud">
+      <div class="stat"><b id="score">0</b>score</div>
+      <div class="stat"><b id="streak">0</b>streak</div>
+      <div class="stat"><b id="time">1:00</b>time</div>
+      <button class="btn-link" id="endBtn">End round</button>
+    </div>
+    <div class="clock" id="clock"><i id="fill"></i></div>
+
+    <div class="stage">
+      <p class="prompt" id="prompt"></p>
+      <p class="given" id="given"></p>
+      <div class="formula" id="formula"></div>
+      <div class="options" id="options"></div>
+      <div class="feedback bad" id="feedback" aria-live="polite" hidden>
+        <h3 id="fbHead"></h3>
+        <p id="explain"></p>
+        <button class="btn" id="nextBtn">Next question (Space)</button>
+      </div>
+      <p class="flash" id="flash" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
+
+<section id="end" hidden class="results">
+  <p class="tally" id="tally"></p>
+  <div class="bignums">
+    <div><b id="eAcc"></b><span>accuracy</span></div>
+    <div><b id="eStreak"></b><span>best streak</span></div>
+    <div><b id="eBest"></b><span>best for this length</span></div>
+  </div>
+  <h2 id="reviewHead">Review these</h2>
+  <ul class="missed" id="review"></ul>
+  <div class="actions">
+    <button class="btn" id="againBtn">Play again</button>
+    <button class="btn btn-outline" id="settingsBtn">Change settings</button>
+  </div>
+</section>
+
+<footer class="site-footer"><span></span><a href="index.html">All Analysis I drills</a></footer>
+</main>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- helpers ---------- */
+function rnd(n){return Math.floor(Math.random()*n)}
+function pick(a){return a[rnd(a.length)]}
+function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=rnd(i+1),t=a[i];a[i]=a[j];a[j]=t}return a}
+function num(n){return n===Infinity?'∞':n===-Infinity?'−∞':(n<0?'−'+(-n):String(n))}
+function uniqSorted(xs){var s={};xs.forEach(function(x){s[x]=1});return Object.keys(s).map(Number).sort(function(a,b){return a-b})}
+function fmtSet(xs){xs=uniqSorted(xs);return xs.length?'{'+xs.map(num).join(', ')+'}':'∅'}
+function range(a,b){var o=[];for(var x=a;x<=b;x++)o.push(x);return o}
+var I=function(s){return '<i>'+s+'</i>'};
+var A=I('A'),B=I('B'),U=I('U'),X=I('x'),S=I('s'),N=I('n');
+var C='<sup>c</sup>';
+
+/* Options: [{h, ok}] with exactly one ok and all texts distinct. */
+function mc(correct,wrongs){
+  var seen={},opts=[{h:correct,ok:true}];seen[correct]=1;
+  wrongs.forEach(function(w){if(opts.length<4&&!seen[w]){seen[w]=1;opts.push({h:w,ok:false})}});
+  return shuffle(opts);
+}
+function tf(truth){return [{h:'True',ok:truth,word:true},{h:'False',ok:!truth,word:true}]}
+
+/* ---------- 3.1: elements and equality (true or false) ---------- */
+var MEMBER=[
+  ['2 ∈ {1, 2, 3}',true,'2 is one of the listed elements.'],
+  ['{1} ∈ {1, 2}',false,'The elements are 1 and 2. The set {1} is not one of them; the number 1 is.'],
+  ['{1} ∈ {{1}, 2}',true,'The elements are {1} and 2, so {1} is an element.'],
+  ['1 ∈ {{1}, 2}',false,'The elements are {1} and 2. The number 1 sits inside an element, which does not make it an element.'],
+  ['∅ ∈ ∅',false,'∅ has no elements at all, so nothing is an element of it, not even ∅.'],
+  ['∅ ∈ {∅}',true,'{∅} is a set with exactly one element, and that element is ∅.'],
+  ['{∅} = ∅',false,'{∅} has one element and ∅ has none, so they are different sets.'],
+  ['{0} = ∅',false,'{0} has one element, the number 0. ∅ has no elements.'],
+  ['{1, 2, 2, 3} = {3, 2, 1}',true,'A set is determined by its elements. Order and repetition in an enumeration do not matter.'],
+  ['{1, 2} = {{1}, {2}}',false,'The left side has the numbers 1 and 2 as elements; the right side has the sets {1} and {2}.'],
+  ['{1, 2} ∈ {1, 2, {1, 2}}',true,'The third listed element is the set {1, 2} itself.'],
+  ['{∅, {∅}} has two elements',true,'Its elements are ∅ and {∅}, and these are different sets.'],
+  ['{'+X+' ∈ ℕ | '+X+' &lt; 0} = ∅',true,'No natural number is negative, so no element satisfies the condition.'],
+  ['{'+X+' ∈ ℝ | '+X+'² = 1} = {−1, 1}',true,'The real solutions of x² = 1 are exactly −1 and 1.'],
+  ['{'+X+' ∈ ℤ | '+X+'² = 2} = ∅',true,'No integer squares to 2.'],
+  ['3 ∈ {'+X+' ∈ ℤ | '+X+'² &lt; 9}',false,'3² = 9, which is not less than 9.'],
+  ['−2 ∈ {'+X+' ∈ ℕ | '+X+'² = 4}',false,'−2 does satisfy x² = 4, but it is not in ℕ, and set-builder notation only collects elements of ℕ here.'],
+  ['{'+X+' ∈ ℝ | '+X+' &gt; 0} = {'+I('y')+' ∈ ℝ | '+I('y')+' &gt; 0}',true,'The name of the variable in set-builder notation does not matter; both describe the positive reals.'],
+  ['{'+X+' ∈ ℤ | '+X+' &gt; 1 ∧ '+X+' &lt; 2} = ∅',true,'There is no integer strictly between 1 and 2.'],
+  ['{'+X+' ∈ ℝ | '+X+' &gt; 1 ∧ '+X+' &lt; 2} = ∅',false,'1.5 is a real number strictly between 1 and 2, so this set is the open interval (1, 2).']
+];
+function qMember(){
+  var r=pick(MEMBER);
+  return {id:'member:'+r[0],topic:'Elements and equality',prompt:'True or false?',given:'',formula:r[0],options:tf(r[1]),
+    explain:r[2],review:r[0]+' is '+(r[1]?'true':'false')+'.'};
+}
+
+/* ---------- 3.1: set-builder notation (generated) ---------- */
+function builderTemplates(){
+  var T=[];
+  T.push(function(){ // squares
+    var r=pick([2,3,4]),k=r*r,strict=Math.random()<0.6;
+    var set=range(-10,10).filter(function(x){return strict?x*x<k:x*x<=k});
+    var other=range(-10,10).filter(function(x){return strict?x*x<=k:x*x<k});
+    return {stem:'{'+X+' ∈ ℤ | '+X+'² '+(strict?'&lt;':'≤')+' '+k+'}',set:set,
+      alts:[other,set.filter(function(x){return x>=0}),set.map(function(x){return x*x})],
+      why:X+'² '+(strict?'&lt;':'≤')+' '+k+' holds exactly when '+(strict?'−'+r+' &lt; '+X+' &lt; '+r:'−'+r+' ≤ '+X+' ≤ '+r)+'. '+(strict?'The endpoints ±'+r+' fail, since '+r+'² = '+k+' is not less than '+k+'. ':'')+'Negative integers count too.'};
+  });
+  T.push(function(){ // absolute value
+    var k=pick([1,2,3]),strict=Math.random()<0.5;
+    var set=range(-10,10).filter(function(x){return strict?Math.abs(x)<k:Math.abs(x)<=k});
+    var other=range(-10,10).filter(function(x){return strict?Math.abs(x)<=k:Math.abs(x)<k});
+    return {stem:'{'+X+' ∈ ℤ | |'+X+'| '+(strict?'&lt;':'≤')+' '+k+'}',set:set,
+      alts:[other,set.filter(function(x){return x>=0}),[-k,k]],
+      why:'|'+X+'| '+(strict?'&lt;':'≤')+' '+k+' means '+(strict?'−'+k+' &lt; '+X+' &lt; '+k:'−'+k+' ≤ '+X+' ≤ '+k)+'.'};
+  });
+  T.push(function(){ // parity in a range
+    var a=pick([2,3,4]),b=pick([3,4,5]),even=Math.random()<0.5;
+    function par(x){return even?x%2===0:Math.abs(x%2)===1}
+    var set=range(-a,b).filter(par);
+    return {stem:'{'+X+' ∈ ℤ | −'+a+' ≤ '+X+' ≤ '+b+' ∧ '+X+' is '+(even?'even':'odd')+'}',set:set,
+      alts:[range(-a,b).filter(function(x){return !par(x)}),range(-a+1,b-1).filter(par),set.filter(function(x){return x>=0})],
+      why:'List the integers from −'+a+' to '+b+', endpoints included, and keep the '+(even?'even':'odd')+' ones. Zero is even.'};
+  });
+  T.push(function(){ // divisors
+    var n=pick([6,8,12,18,20]);
+    var set=range(1,n).filter(function(x){return n%x===0});
+    return {stem:'{'+X+' ∈ ℕ<sup>+</sup> | '+X+' divides '+n+'}',set:set,
+      alts:[set.filter(function(x){return x!==n}),set.filter(function(x){return x!==1}),range(1,Math.floor(n/2)).map(function(x){return 2*x}).filter(function(x){return x<=n})],
+      why:X+' divides '+n+' when '+n+' = '+X+I('k')+' for some integer '+I('k')+'. Both 1 and '+n+' qualify.'};
+  });
+  T.push(function(){ // collects x, not the values
+    var m=pick([3,4,5]),k=2*m+1;
+    var set=range(0,m-1);
+    return {stem:'{'+X+' ∈ ℤ | '+X+' ≥ 0 ∧ 2'+X+' + 1 &lt; '+k+'}',set:set,
+      alts:[range(0,m),set.map(function(x){return 2*x+1}),range(1,m-1)],
+      why:'2'+X+' + 1 &lt; '+k+' means '+X+' &lt; '+m+', so '+X+' runs from 0 to '+(m-1)+'. The set collects the values of '+X+', not the values of 2'+X+' + 1.'};
+  });
+  return T;
+}
+var BUILDERS=builderTemplates();
+function qBuilder(){
+  var t=pick(BUILDERS)();
+  var correct=fmtSet(t.set);
+  var wrongs=t.alts.map(fmtSet).concat([fmtSet(t.set.concat([Math.max.apply(null,t.set)+1])),fmtSet(t.set.slice(1))]);
+  return {id:'builder:'+t.stem,topic:'Set-builder notation',prompt:'Which set is this?',given:'',formula:t.stem,
+    options:mc(correct,wrongs),math:true,explain:t.why+' So the set is '+correct+'.',review:t.stem+' = '+correct};
+}
+
+/* ---------- 3.2: operations on finite sets ---------- */
+var OPS=[
+  {h:A+' ∪ '+B,f:function(a,b){return a||b},why:'Union: the elements in '+A+' or in '+B+' (or both).'},
+  {h:A+' ∩ '+B,f:function(a,b){return a&&b},why:'Intersection: the elements in both '+A+' and '+B+'.'},
+  {h:A+' ∖ '+B,f:function(a,b){return a&&!b},why:'Difference: the elements of '+A+' that are not in '+B+'.'},
+  {h:B+' ∖ '+A,f:function(a,b){return b&&!a},why:'Difference: the elements of '+B+' that are not in '+A+'.'},
+  {h:A+C,f:function(a){return !a},why:'Complement: the elements of the universe '+U+' that are not in '+A+'.'},
+  {h:'('+A+' ∪ '+B+')'+C,f:function(a,b){return !(a||b)},why:'The elements of '+U+' in neither '+A+' nor '+B+'. By De Morgan this is '+A+C+' ∩ '+B+C+'.'},
+  {h:A+C+' ∩ '+B,f:function(a,b){return !a&&b},why:'The elements of '+B+' outside '+A+', which is '+B+' ∖ '+A+'.'}
+];
+var LAWS=[
+  [X+' ∉ '+A+' ∪ '+B+' means',X+' ∉ '+A+' ∧ '+X+' ∉ '+B,[X+' ∉ '+A+' ∨ '+X+' ∉ '+B,X+' ∈ '+A+' ∧ '+X+' ∉ '+B,X+' ∉ '+A+' ∩ '+B],'Negate the ∨ in '+X+' ∈ '+A+' ∨ '+X+' ∈ '+B+' with De Morgan: it becomes an ∧.'],
+  [X+' ∉ '+A+' ∩ '+B+' means',X+' ∉ '+A+' ∨ '+X+' ∉ '+B,[X+' ∉ '+A+' ∧ '+X+' ∉ '+B,X+' ∈ '+A+' ∨ '+X+' ∈ '+B,X+' ∉ '+A+' ∪ '+B],'Negate the ∧ in '+X+' ∈ '+A+' ∧ '+X+' ∈ '+B+' with De Morgan: it becomes an ∨.'],
+  ['('+A+' ∪ '+B+')'+C+' =',A+C+' ∩ '+B+C,[A+C+' ∪ '+B+C,A+' ∩ '+B,A+' ∖ '+B],'De Morgan for sets: outside the union means outside both.'],
+  ['('+A+' ∩ '+B+')'+C+' =',A+C+' ∪ '+B+C,[A+C+' ∩ '+B+C,A+' ∪ '+B,B+' ∖ '+A],'De Morgan for sets: outside the intersection means outside at least one.'],
+  [A+' ∖ '+B+' =',A+' ∩ '+B+C,[A+C+' ∩ '+B,A+' ∪ '+B+C,B+' ∖ '+A],X+' ∈ '+A+' ∖ '+B+' means '+X+' ∈ '+A+' ∧ '+X+' ∉ '+B+', and '+X+' ∉ '+B+' is '+X+' ∈ '+B+C+'.'],
+  ['('+A+C+')'+C+' =',A,[A+C,U,'∅'],'Taking the complement twice returns '+A+', like double negation.']
+];
+function randSubset(u,min,max){var n=min+rnd(max-min+1);return shuffle(u).slice(0,n)}
+function qOps(){
+  if(Math.random()<0.3){
+    var l=pick(LAWS);
+    return {id:'law:'+l[0],topic:'Operations',prompt:'Which is right? Here '+A+' and '+B+' are subsets of a universe '+U+'.',given:'',formula:l[0],
+      options:mc(l[1],l[2]),math:true,explain:l[3],review:l[0]+' '+l[1]};
+  }
+  var u=range(1,8),a,b,tries=0;
+  do{a=randSubset(u,3,5);b=randSubset(u,3,5);tries++}
+  while(tries<50&&(a.filter(function(x){return b.indexOf(x)>=0}).length===0||fmtSet(a)===fmtSet(b)));
+  function res(op){return u.filter(function(x){return op.f(a.indexOf(x)>=0,b.indexOf(x)>=0)})}
+  var op=pick(OPS),correct=fmtSet(res(op));
+  var wrongs=shuffle(OPS.filter(function(o){return o!==op})).map(function(o){return fmtSet(res(o))});
+  return {id:'ops:'+op.h,topic:'Operations',prompt:'Compute the set.',
+    given:U+' = {1, 2, …, 8}, &nbsp;'+A+' = '+fmtSet(a)+', &nbsp;'+B+' = '+fmtSet(b),formula:op.h+' = ?',
+    options:mc(correct,wrongs),math:true,explain:op.why+' Here that is '+correct+'.',review:op.h+' with '+A+' = '+fmtSet(a)+', '+B+' = '+fmtSet(b)+': '+correct};
+}
+
+/* ---------- 3.2: intervals (computed exactly) ---------- */
+function interval(lo,hi,lc,hc){return {lo:lo,hi:hi,lc:lc,hc:hc}}
+function inI(v,x){return (x>v.lo||(v.lc&&x===v.lo))&&(x<v.hi||(v.hc&&x===v.hi))}
+function fmtI(v){return (v.lc?'[':'(')+num(v.lo)+', '+num(v.hi)+(v.hc?']':')')}
+/* Describe {x : f(x)} as a union of intervals, given every point where f can change. */
+function describe(f,pts){
+  pts=uniqSorted(pts);
+  var regions=[];
+  if(!pts.length)regions.push({open:true,a:-Infinity,b:Infinity,s:0});
+  else{
+    regions.push({open:true,a:-Infinity,b:pts[0],s:pts[0]-1});
+    pts.forEach(function(p,i){
+      regions.push({open:false,p:p});
+      var q=i+1<pts.length?pts[i+1]:Infinity;
+      regions.push({open:true,a:p,b:q,s:q===Infinity?p+1:(p+q)/2});
+    });
+  }
+  var pieces=[],cur=null,last=null;
+  regions.forEach(function(r){
+    var inc=f(r.open?r.s:r.p);
+    if(inc&&!cur)cur=r.open?{lo:r.a,lc:false}:{lo:r.p,lc:true};
+    if(!inc&&cur){pieces.push(close(cur,last));cur=null}
+    if(inc)last=r;
+  });
+  if(cur)pieces.push(close(cur,last));
+  function close(c,r){return r.open?interval(c.lo,r.b,c.lc,false):interval(c.lo,r.p,c.lc,true)}
+  if(!pieces.length)return '∅';
+  return pieces.map(function(v){
+    if(v.lo===-Infinity&&v.hi===Infinity)return 'ℝ';
+    if(v.lo===v.hi)return '{'+num(v.lo)+'}';
+    return fmtI(v);
+  }).join(' ∪ ');
+}
+function randInterval(){
+  var lo=rnd(5),hi=lo+2+rnd(3);
+  return interval(lo,hi,Math.random()<0.5,Math.random()<0.5);
+}
+var IOPS=[
+  {h:A+' ∪ '+B,f:function(a,b){return a||b},def:X+' ∈ '+A+' ∪ '+B+' means '+X+' ∈ '+A+' ∨ '+X+' ∈ '+B+'.'},
+  {h:A+' ∩ '+B,f:function(a,b){return a&&b},def:X+' ∈ '+A+' ∩ '+B+' means '+X+' ∈ '+A+' ∧ '+X+' ∈ '+B+'.'},
+  {h:A+' ∖ '+B,f:function(a,b){return a&&!b},def:X+' ∈ '+A+' ∖ '+B+' means '+X+' ∈ '+A+' ∧ '+X+' ∉ '+B+'.'},
+  {h:B+' ∖ '+A,f:function(a,b){return b&&!a},def:X+' ∈ '+B+' ∖ '+A+' means '+X+' ∈ '+B+' ∧ '+X+' ∉ '+A+'.'},
+  {h:A+C,f:function(a){return !a},def:A+C+' is taken in the universe ℝ: '+X+' ∈ '+A+C+' means '+X+' ∉ '+A+'.'}
+];
+function qIntervals(){
+  var a,b,tries=0;
+  do{a=randInterval();b=randInterval();tries++}while(tries<50&&!(a.lo<b.hi&&b.lo<a.hi&&(a.lo!==b.lo||a.hi!==b.hi)));
+  var pts=[a.lo,a.hi,b.lo,b.hi];
+  function fOf(op){return function(x){return op.f(inI(a,x),inI(b,x))}}
+  var op=pick(IOPS),f=fOf(op),correct=describe(f,pts);
+  var wrongs=[];
+  uniqSorted(pts).forEach(function(p){wrongs.push(describe(function(x){return x===p?!f(x):f(x)},pts))});
+  wrongs=shuffle(wrongs).slice(0,2).concat(shuffle(IOPS.filter(function(o){return o!==op})).map(function(o){return describe(fOf(o),pts)}));
+  var checks=uniqSorted(pts).map(function(p){
+    return p+' is '+(inI(a,p)?'in':'not in')+' '+A+' and '+(inI(b,p)?'in':'not in')+' '+B+', so it is '+(f(p)?'in':'not in')+' the answer';
+  }).join('; ');
+  return {id:'int:'+op.h,topic:'Intervals',prompt:'Compute the set. Endpoints matter.',
+    given:A+' = '+fmtI(a)+', &nbsp;'+B+' = '+fmtI(b),formula:op.h+' = ?',options:mc(correct,wrongs),math:true,
+    explain:op.def+' Check the endpoints one at a time: '+checks+'. So the answer is '+correct+'.',
+    review:op.h+' with '+A+' = '+fmtI(a)+', '+B+' = '+fmtI(b)+': '+correct};
+}
+
+/* ---------- 3.2: indexed families ---------- */
+var U_N='<span class="bigop">⋃</span><sub>'+N+' ∈ ℕ<sup>+</sup></sub> ',I_N='<span class="bigop">⋂</span><sub>'+N+' ∈ ℕ<sup>+</sup></sub> ';
+var FAM=[
+  [I_N+'(−1/'+N+', 1/'+N+')','{0}',['∅','(−1, 1)','[−1, 1]'],'0 lies in every interval. Any '+X+' ≠ 0 misses the interval for a large enough '+N+' (the Archimedean property: some natural number exceeds 1/|'+X+'|).'],
+  [U_N+'[1/'+N+', 1]','(0, 1]',['[0, 1]','{1}','(0, 1)'],'Every '+X+' with 0 &lt; '+X+' ≤ 1 has 1/'+N+' ≤ '+X+' for some '+N+'. But 0 is in none of the intervals, since 1/'+N+' &gt; 0.'],
+  [I_N+'[0, 1/'+N+']','{0}',['∅','[0, 1]','(0, 1]'],'0 lies in every interval, and any '+X+' &gt; 0 fails once 1/'+N+' &lt; '+X+'.'],
+  [I_N+'(0, 1/'+N+')','∅',['{0}','(0, 1)','[0, 1)'],'0 is excluded from every interval, and any '+X+' &gt; 0 fails once 1/'+N+' &lt; '+X+'. Nothing is left.'],
+  [U_N+'(−'+N+', '+N+')','ℝ',['(−1, 1)','ℕ<sup>+</sup>','∅'],'Every real '+X+' lies in (−'+N+', '+N+') as soon as '+N+' &gt; |'+X+'|.'],
+  [I_N+'['+N+', ∞)','∅',['[1, ∞)','ℕ<sup>+</sup>','(0, ∞)'],'Any real '+X+' fails to be in ['+N+', ∞) once '+N+' &gt; '+X+'.'],
+  [U_N+'['+N+', '+N+' + 1)','[1, ∞)',['(1, ∞)','ℕ<sup>+</sup>','[1, 2)'],'Each '+X+' ≥ 1 lies in ['+N+', '+N+' + 1) for the integer '+N+' with '+N+' ≤ '+X+' &lt; '+N+' + 1. Nothing below 1 is covered.'],
+  [U_N+'[0, 1 − 1/'+N+']','[0, 1)',['[0, 1]','(0, 1)','{0}'],'Each '+X+' with 0 ≤ '+X+' &lt; 1 satisfies '+X+' ≤ 1 − 1/'+N+' for large '+N+'. But 1 is never reached, since 1 − 1/'+N+' &lt; 1.'],
+  [I_N+'(1 − 1/'+N+', 1 + 1/'+N+')','{1}',['(0, 2)','∅','[0, 2]'],'1 lies in every interval. Any '+X+' ≠ 1 misses the interval once 1/'+N+' &lt; |'+X+' − 1|.'],
+  [S+' ∉ <span class="bigop">⋂</span><sub>'+I('i')+' ∈ '+I('I')+'</sub> '+A+'<sub>'+I('i')+'</sub> means',S+' ∉ '+A+'<sub>'+I('i')+'</sub> for some '+I('i')+' ∈ '+I('I'),[S+' ∉ '+A+'<sub>'+I('i')+'</sub> for all '+I('i')+' ∈ '+I('I'),S+' ∈ '+A+'<sub>'+I('i')+'</sub> for some '+I('i')+' ∈ '+I('I'),S+' ∈ '+A+'<sub>'+I('i')+'</sub> for no '+I('i')+' ∈ '+I('I')],'Membership in the intersection is a “for all”. Its negation is a “for some … not”: one set that misses '+S+' is enough.'],
+  [S+' ∈ <span class="bigop">⋃</span><sub>'+I('i')+' ∈ '+I('I')+'</sub> '+A+'<sub>'+I('i')+'</sub> means',S+' ∈ '+A+'<sub>'+I('i')+'</sub> for some '+I('i')+' ∈ '+I('I'),[S+' ∈ '+A+'<sub>'+I('i')+'</sub> for all '+I('i')+' ∈ '+I('I'),S+' ∉ '+A+'<sub>'+I('i')+'</sub> for some '+I('i')+' ∈ '+I('I'),S+' ∈ '+A+'<sub>'+I('i')+'</sub> for exactly one '+I('i')+' ∈ '+I('I')],'The union collects everything that lies in at least one of the sets: “for some”.'],
+  [S+' ∉ <span class="bigop">⋃</span><sub>'+I('i')+' ∈ '+I('I')+'</sub> '+A+'<sub>'+I('i')+'</sub> means',S+' ∉ '+A+'<sub>'+I('i')+'</sub> for all '+I('i')+' ∈ '+I('I'),[S+' ∉ '+A+'<sub>'+I('i')+'</sub> for some '+I('i')+' ∈ '+I('I'),S+' ∈ '+A+'<sub>'+I('i')+'</sub> for all '+I('i')+' ∈ '+I('I'),S+' ∈ '+A+'<sub>'+I('i')+'</sub> for some '+I('i')+' ∈ '+I('I')],'Negating a “for some” gives a “for all … not”: '+S+' must miss every one of the sets.']
+];
+function qFamilies(){
+  var r=pick(FAM),isMeans=/means$/.test(r[0]);
+  return {id:'fam:'+r[0],topic:'Indexed families',prompt:isMeans?'Which is right?':'Compute the set.',given:'',formula:r[0]+(isMeans?'':' = ?'),
+    options:mc(r[1],r[2]),math:true,explain:r[3],review:r[0]+(isMeans?' ':' = ')+r[1]};
+}
+
+var MAKERS={member:qMember,builder:qBuilder,ops:qOps,intervals:qIntervals,families:qFamilies};
+function makeQuestion(topics,lastId){
+  for(var i=0;i<12;i++){
+    var q=MAKERS[pick(topics)]();
+    if(q.id!==lastId&&q.options.filter(function(o){return o.ok}).length===1&&q.options.length>=2)return q;
+  }
+  return q;
+}
+window.__setsTest={makeQuestion:makeQuestion,describe:describe};
+
+/* ---------- game ---------- */
+var $=function(id){return document.getElementById(id)};
+var st=null,raf=0;
+function bestKey(len){return 'sets-drill-best-'+len}
+function readBest(len){try{return parseInt(localStorage.getItem(bestKey(len)),10)||0}catch(e){return 0}}
+function writeBest(len,v){try{localStorage.setItem(bestKey(len),String(v))}catch(e){}}
+function curLen(){return parseInt(document.querySelector('input[name=len]:checked').value,10)}
+function showBest(){var b=readBest(curLen());$('best').textContent=b?'Best for this length: '+b:''}
+function screen(name){['start','play','end'].forEach(function(s){$(s).hidden=s!==name});window.scrollTo(0,0);if(document.activeElement)document.activeElement.blur()}
+
+function startRound(){
+  var topics=[].slice.call(document.querySelectorAll('input[name=topic]:checked')).map(function(i){return i.value});
+  if(!topics.length){$('warn').hidden=false;return}
+  $('warn').hidden=true;
+  var len=curLen();
+  st={topics:topics,len:len,remaining:len*1000,paused:false,locked:false,score:0,wrong:0,streak:0,bestStreak:0,missed:[],q:null,last:0,over:false};
+  $('clock').style.visibility=len?'visible':'hidden';
+  screen('play');updateHud();nextQuestion();
+  cancelAnimationFrame(raf);raf=requestAnimationFrame(tick);
+}
+function tick(ts){
+  if(!st||st.over)return;
+  if(st.last&&!st.paused&&st.len>0)st.remaining-=Math.min(ts-st.last,250);
+  st.last=ts;
+  if(st.len>0){
+    $('fill').style.transform='scaleX('+Math.max(0,st.remaining/(st.len*1000))+')';
+    var s=Math.max(0,Math.ceil(st.remaining/1000));
+    $('time').textContent=Math.floor(s/60)+':'+('0'+s%60).slice(-2);
+    $('clock').classList.toggle('low',st.remaining<10000);
+    if(st.remaining<=0){endRound();return}
+  }else $('time').textContent='–';
+  raf=requestAnimationFrame(tick);
+}
+function updateHud(){$('score').textContent=st.score;$('streak').textContent=st.streak}
+
+function nextQuestion(){
+  if(!st||st.over)return;
+  var q=makeQuestion(st.topics,st.q?st.q.id:null);
+  st.q=q;st.locked=false;st.paused=false;
+  $('prompt').innerHTML=q.prompt;
+  $('given').innerHTML=q.given;$('given').hidden=!q.given;
+  $('formula').innerHTML=q.formula;
+  $('feedback').hidden=true;$('flash').textContent='';
+  var box=$('options');box.innerHTML='';
+  box.className='options'+(q.options.length===2||!q.math?' two':'');
+  q.options.forEach(function(o,i){
+    var b=document.createElement('button');
+    b.className='option'+(q.math&&!o.word?' math-option':'');
+    b.innerHTML='<span class="k">'+(i+1)+'</span><span>'+o.h+'</span><span class="tag"></span>';
+    b.addEventListener('click',function(){answer(i)});
+    box.appendChild(b);
+  });
+}
+function answer(i){
+  if(!st||st.over||st.locked||!st.q||i>=st.q.options.length)return;
+  st.locked=true;
+  var q=st.q,btns=$('options').children;
+  [].forEach.call(btns,function(b){b.disabled=true});
+  if(q.options[i].ok){
+    st.score++;st.streak++;st.bestStreak=Math.max(st.bestStreak,st.streak);
+    btns[i].classList.add('good');$('flash').textContent='Correct';updateHud();
+    setTimeout(nextQuestion,200);
+    return;
+  }
+  st.wrong++;st.streak=0;st.paused=true;updateHud();
+  btns[i].classList.add('bad');btns[i].querySelector('.tag').textContent='your answer';
+  q.options.forEach(function(o,j){
+    if(o.ok){btns[j].classList.add('good');btns[j].querySelector('.tag').textContent='correct answer'}
+    else if(j!==i)btns[j].classList.add('dim');
+  });
+  if(!st.missed.some(function(m){return m.review===q.review}))st.missed.push({topic:q.topic,review:q.review,why:q.explain});
+  $('fbHead').textContent='Not quite';
+  $('explain').innerHTML=q.explain;
+  $('feedback').hidden=false;$('nextBtn').focus();
+}
+function endRound(){
+  if(!st||st.over)return;
+  st.over=true;cancelAnimationFrame(raf);
+  var total=st.score+st.wrong,prev=readBest(st.len),isBest=st.score>prev;
+  if(isBest)writeBest(st.len,st.score);
+  $('tally').textContent=st.score+' right out of '+total+(isBest&&st.score>0?'. New best.':'');
+  $('eAcc').textContent=total?Math.round(100*st.score/total)+'%':'–';
+  $('eStreak').textContent=st.bestStreak;
+  $('eBest').textContent=Math.max(prev,st.score);
+  $('reviewHead').textContent=st.missed.length?'Review these':(total?'Nothing missed this round':'No questions answered');
+  $('review').innerHTML=st.missed.map(function(m){
+    return '<li><span class="ok">'+m.topic+'</span><div class="mf">'+m.review+'</div><p class="why">'+m.why+'</p></li>';
+  }).join('');
+  screen('end');showBest();
+}
+
+$('startBtn').addEventListener('click',startRound);
+$('againBtn').addEventListener('click',startRound);
+$('settingsBtn').addEventListener('click',function(){screen('start');showBest()});
+$('endBtn').addEventListener('click',endRound);
+$('nextBtn').addEventListener('click',nextQuestion);
+[].forEach.call(document.querySelectorAll('input[name=len]'),function(i){i.addEventListener('change',showBest)});
+document.addEventListener('keydown',function(e){
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  if(!st||st.over||$('play').hidden)return;
+  var k=e.key;
+  if(k==='Escape'){endRound();return}
+  if(st.paused){if(k===' '||k==='Enter'){e.preventDefault();nextQuestion()}return}
+  if(k>='1'&&k<='4'){e.preventDefault();answer(parseInt(k,10)-1)}
+  else if((k==='t'||k==='T'||k==='f'||k==='F')&&st.q.options[0].word){
+    var want=(k==='t'||k==='T')?'True':'False';
+    st.q.options.forEach(function(o,j){if(o.h===want)answer(j)});
+  }
+});
+showBest();
+})();
+</script>
+</body>
+</html>
