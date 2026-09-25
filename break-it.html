@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Break it: tautology speed drill</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="drills.css">
+<style>
+#formula{font-size:var(--fs,2.6rem);min-height:2.7em;display:flex;align-items:center;justify-content:center;max-width:100%}
+.formula .op{padding:0 .08em}
+.lede-2{margin-top:.75rem}
+.missed .ok{margin:.2rem 0 0}
+.missed .why p{margin:.3rem 0 0}
+.stage>.answers,.stage>#cex,.stage>.feedback{width:100%;max-width:36rem}
+#cex{margin-top:1.25rem}
+</style>
+</head>
+<body>
+<main class="page">
+
+<section id="start">
+  <header class="masthead">
+    <p class="eyebrow"><a href="index.html">Analysis I</a> · Chapter 1 · Tautologies, contradictions and contingent formulas</p>
+    <h1>Can you make it false?</h1>
+    <p class="lede">Each round shows one formula. <strong>Hunt for an assignment that makes it false.</strong> Start at the main connective and push the forced values inward. If the hunt runs into a contradiction, it's a tautology. If it succeeds, it isn't.</p>
+    <p class="lede lede-2">A wrong answer costs 5 seconds and shows you why.</p>
+  </header>
+
+  <div class="settings">
+    <div class="field">
+      <span class="field-label">Round</span>
+      <div class="chips">
+        <label class="chip"><input type="radio" name="mode" value="sprint" checked>60-second sprint</label>
+        <label class="chip"><input type="radio" name="mode" value="practice">Untimed practice</label>
+      </div>
+    </div>
+    <div class="field">
+      <span class="field-label">Difficulty</span>
+      <div class="chips">
+        <label class="chip"><input type="radio" name="lvl" value="0" checked>Ramps up</label>
+        <label class="chip"><input type="radio" name="lvl" value="1">Level 1</label>
+        <label class="chip"><input type="radio" name="lvl" value="2">Level 2</label>
+        <label class="chip"><input type="radio" name="lvl" value="3">Level 3</label>
+      </div>
+    </div>
+    <label class="check">
+      <input type="checkbox" id="cexOpt">
+      <span>Make me give the counterexample
+        <small class="field-note">When you say a formula can be falsified, you have to supply the assignment. Sprint runs 90 seconds.</small></span>
+    </label>
+  </div>
+
+  <div class="actions"><button class="btn btn-lg" id="goBtn">Start round</button><span class="best" id="bestLine"></span></div>
+
+  <p class="hint"><kbd>T</kbd> or <kbd>←</kbd> tautology, <kbd>F</kbd> or <kbd>→</kbd> can be falsified, <kbd>Enter</kbd> next formula. With counterexamples on, <kbd>P</kbd> <kbd>Q</kbd> <kbd>R</kbd> flip a variable.</p>
+</section>
+
+<section id="play" hidden>
+  <div class="panel">
+    <div class="hud">
+      <div class="stat"><b id="hScore">0</b>correct</div>
+      <div class="stat"><b id="hStreak">0</b>streak</div>
+      <div class="stat" id="hTimeBox"><b id="hTime">60</b>seconds</div>
+      <div class="stat"><b id="hLvl">1</b>level</div>
+      <span class="spacer"></span>
+      <button class="btn-link" id="quitBtn">End round</button>
+    </div>
+    <div class="clock" id="fuse"><i id="fuseBar"></i></div>
+
+    <div class="stage">
+      <div class="formula" id="formula" aria-live="polite"></div>
+
+      <div class="answers" id="answers">
+        <button class="answer" id="bT">Tautology<small>can't be made false · T</small></button>
+        <button class="answer" id="bF">Can be falsified<small>some assignment breaks it · F</small></button>
+      </div>
+
+      <div id="cex" hidden>
+        <p class="prompt">Set an assignment that makes the formula false.</p>
+        <div class="values" id="chips"></div>
+        <button class="btn" id="cexBtn">Check assignment</button>
+      </div>
+
+      <div class="feedback" id="panel" hidden>
+        <h3 id="pHead"></h3>
+        <p class="name" id="pName"></p>
+        <div id="pBody"></div>
+        <button class="btn" id="nextBtn">Next formula</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="end" hidden class="results">
+  <p class="tally" id="eHead"></p>
+  <div class="bignums">
+    <div><b id="eScore"></b><span>correct</span></div>
+    <div><b id="eAcc"></b><span>accuracy</span></div>
+    <div><b id="eAvg"></b><span>seconds per formula</span></div>
+    <div><b id="eBest"></b><span>best for this setup</span></div>
+  </div>
+  <div id="missed"></div>
+  <div class="actions"><button class="btn" id="againBtn">Play again</button><button class="btn btn-outline" id="setupBtn">Change settings</button></div>
+</section>
+
+<footer class="site-footer"><span>Analysis I · Chapter 1</span><a href="index.html">All Analysis I drills</a></footer>
+</main>
+
+<script>
+//CORE-START
+const V=n=>({t:'v',n}), N=a=>({t:'n',a});
+const And=(a,b)=>({t:'and',a,b}), Or=(a,b)=>({t:'or',a,b}), Imp=(a,b)=>({t:'imp',a,b}), Iff=(a,b)=>({t:'iff',a,b});
+const SYM={and:'∧',or:'∨',imp:'→',iff:'↔'};
+const A=V('A'),B=V('B'),C=V('C');
+
+const SCHEMAS=[
+ // tautologies
+ {f:Imp(And(A,Imp(A,B)),B),taut:true,lv:1,name:'Modus ponens',why:'To make it false you need B false and A ∧ (A → B) true. That forces A true, and then A → B is T → F, which is false. Contradiction.'},
+ {f:Imp(And(Imp(A,B),N(B)),N(A)),taut:true,lv:1,name:'Modus tollens',why:'You need ¬A false, so A is true, and ¬B true, so B is false. Then A → B is T → F, which is false, but it had to be true.'},
+ {f:Imp(And(Imp(A,B),Imp(B,C)),Imp(A,C)),taut:true,lv:2,name:'Chaining implications',why:'You need A → C false, so A is true and C is false. A → B true with A true forces B true. B → C true with B true forces C true. But C is false.'},
+ {f:Iff(Imp(A,B),Imp(N(B),N(A))),taut:true,lv:1,name:'Contrapositive',why:'Each side is false in exactly one case: A true and B false. Same failure condition, so the two sides always agree.'},
+ {f:Iff(N(And(A,B)),Or(N(A),N(B))),taut:true,lv:1,name:'De Morgan',why:'The left is false exactly when A and B are both true. The right is false exactly when ¬A and ¬B are both false, which is the same case.'},
+ {f:Iff(N(Or(A,B)),And(N(A),N(B))),taut:true,lv:1,name:'De Morgan',why:'The left is true exactly when A and B are both false. The right is true in exactly that case too.'},
+ {f:Iff(N(Imp(A,B)),And(A,N(B))),taut:true,lv:1,name:'Negation of an implication',why:'A → B is false only when A is true and B is false, so its negation is true in exactly that case, which is what A ∧ ¬B says.'},
+ {f:Iff(Imp(A,B),Or(N(A),B)),taut:true,lv:1,name:'Implication as a disjunction',why:'¬A ∨ B is false only when A is true and B is false. That is the single case where A → B is false.'},
+ {f:Or(A,N(A)),taut:true,lv:1,name:'Excluded middle',why:'An ∨ is false only when both parts are false, but A and ¬A never share a truth value.'},
+ {f:N(And(A,N(A))),taut:true,lv:1,name:'Non-contradiction',why:'To make it false you need A ∧ ¬A true, which needs A to be both true and false.'},
+ {f:Imp(And(A,B),A),taut:true,lv:1,name:'Simplification',why:'You need A false while A ∧ B is true. But A ∧ B true forces A true.'},
+ {f:Imp(A,Or(A,B)),taut:true,lv:1,name:'Addition',why:'You need A true and A ∨ B false. But A ∨ B false forces A false.'},
+ {f:Imp(And(Or(A,B),N(A)),B),taut:true,lv:1,name:'Disjunctive syllogism',why:'You need B false, ¬A true (so A false), and A ∨ B true. With A and B both false, A ∨ B is false.'},
+ {f:Imp(A,Imp(B,A)),taut:true,lv:1,name:'A true thing is implied by anything',why:'You need A true and B → A false. But B → A false forces A false.'},
+ {f:Iff(Imp(A,Imp(B,C)),Imp(And(A,B),C)),taut:true,lv:2,name:'Exportation',why:'Each side is false in exactly one case: A true, B true, C false.'},
+ {f:Iff(And(Imp(A,C),Imp(B,C)),Imp(Or(A,B),C)),taut:true,lv:2,name:'Proof by cases',why:'The right side is false exactly when C is false and at least one of A, B is true. That is also exactly when one of A → C, B → C fails.'},
+ {f:Iff(Iff(A,B),And(Imp(A,B),Imp(B,A))),taut:true,lv:2,name:'Definition of ↔',why:'A ↔ B is false when the two differ. If they differ, one is true and the other false, so one of the two implications is T → F.'},
+ {f:Imp(Imp(N(A),And(B,N(B))),A),taut:true,lv:2,name:'Proof by contradiction',why:'You need A false and ¬A → (B ∧ ¬B) true. With ¬A true, that needs B ∧ ¬B true, which is impossible.'},
+ {f:Iff(And(A,Or(B,C)),Or(And(A,B),And(A,C))),taut:true,lv:2,name:'Distribution',why:'Both sides need A true. Once A is true, the left reduces to B ∨ C and so does the right.'},
+ {f:Iff(And(Imp(A,B),Imp(A,C)),Imp(A,And(B,C))),taut:true,lv:2,name:'Implying a conjunction',why:'Each side is false exactly when A is true and at least one of B, C is false.'},
+ {f:Iff(N(N(A)),A),taut:true,lv:1,plain:true,name:'Double negation',why:'Each ¬ flips the value, so two of them give back the value of A.'},
+ {f:Or(Imp(A,B),Imp(B,A)),taut:true,lv:2,name:'One direction always holds',why:'You need both implications false. The first forces A true and B false. The second forces B true and A false.'},
+ {f:Or(Imp(A,B),Imp(A,N(B))),taut:true,lv:2,name:'A disjunction of implications',why:'You need both false, so A is true, B is false, and ¬B is false too. B cannot be both.'},
+ {f:Imp(Imp(Imp(A,B),A),A),taut:true,lv:3,name:"Peirce's law",why:'You need A false and (A → B) → A true. With A false, A → B is true, so (A → B) → A is T → F, which is false.'},
+ // not tautologies
+ {f:Imp(Imp(A,B),Imp(B,A)),taut:false,lv:1,name:'Converse error',why:"This claims an implication gives you its converse. It doesn't."},
+ {f:Imp(And(Imp(A,B),B),A),taut:false,lv:1,name:'Affirming the consequent',why:'Knowing B and A → B tells you nothing about A.'},
+ {f:Imp(And(Imp(A,B),N(A)),N(B)),taut:false,lv:1,name:'Denying the antecedent',why:'A → B says nothing about what happens when A is false.'},
+ {f:Iff(Imp(A,B),Imp(N(A),N(B))),taut:false,lv:1,name:'Inverse, not contrapositive',why:'The inverse ¬A → ¬B is equivalent to the converse, not to the original. The contrapositive swaps the sides as well as negating them.'},
+ {f:Iff(N(And(A,B)),And(N(A),N(B))),taut:false,lv:1,name:'Botched De Morgan',why:'Negating an ∧ has to flip it to ∨.'},
+ {f:Iff(N(Or(A,B)),Or(N(A),N(B))),taut:false,lv:1,name:'Botched De Morgan',why:'Negating an ∨ has to flip it to ∧.'},
+ {f:Iff(N(Imp(A,B)),Imp(N(A),N(B))),taut:false,lv:1,name:'Wrong negation of an implication',why:'The negation of A → B is A ∧ ¬B. It is never another implication.'},
+ {f:Iff(N(Imp(A,B)),Imp(A,N(B))),taut:false,lv:1,name:'Wrong negation of an implication',why:'The negation of A → B is A ∧ ¬B. With A false, A → ¬B is true but ¬(A → B) is false.'},
+ {f:Imp(Or(A,B),And(A,B)),taut:false,lv:1,name:'∨ is weaker than ∧',why:'An ∨ only needs one side true. An ∧ needs both.'},
+ {f:Imp(Or(A,B),A),taut:false,lv:1,name:'∨ does not pick a side',why:'A ∨ B can be true because of B alone.'},
+ {f:Imp(A,And(A,B)),taut:false,lv:1,name:'Conjunction from nothing',why:'A alone does not give you B.'},
+ {f:Imp(Imp(A,B),And(A,B)),taut:false,lv:1,name:'Implication is not conjunction',why:'A → B is true whenever A is false, and then A ∧ B fails.'},
+ {f:Imp(And(Or(A,B),A),N(B)),taut:false,lv:1,name:'Treating ∨ as exclusive',why:'∨ is inclusive, so A and B can both be true.'},
+ {f:And(Imp(A,B),Imp(A,N(B))),taut:false,lv:2,name:'This is just ¬A in disguise',why:'It is equivalent to ¬A, so it fails whenever A is true.'},
+ {f:Iff(Imp(A,Imp(B,C)),Imp(Imp(A,B),C)),taut:false,lv:2,name:'→ is not associative',why:'Moving the brackets on → changes the meaning.'},
+ {f:Imp(Imp(And(A,B),C),And(Imp(A,C),Imp(B,C))),taut:false,lv:2,name:'Splitting a joint hypothesis',why:'Needing A and B together to get C does not mean each one alone gives C.'},
+ {f:Iff(Or(A,And(B,C)),And(Or(A,B),C)),taut:false,lv:2,name:'Botched distribution',why:'∨ distributes as (A ∨ B) ∧ (A ∨ C). The A was dropped from the second factor.'},
+ {f:Imp(And(Imp(A,B),Imp(C,B)),Imp(A,C)),taut:false,lv:2,name:'Shared conclusion is not a chain',why:'Two implications with the same conclusion do not chain. Chaining needs the middle term to match.'},
+ {f:Imp(And(Imp(A,B),Imp(B,C)),Imp(C,A)),taut:false,lv:2,name:'Chain, then converse error',why:'Chaining gives A → C. This asks for its converse.'},
+ {f:Imp(Imp(Imp(A,B),A),B),taut:false,lv:3,name:"Near-miss of Peirce's law",why:"It looks like Peirce's law, but the conclusion is B instead of A."},
+ {f:Iff(Iff(A,B),Or(Imp(A,B),Imp(B,A))),taut:false,lv:3,name:'Wrong definition of ↔',why:'The right side is always true, so this would make A ↔ B always true. The definition uses ∧.'},
+];
+
+function ev(n,e){switch(n.t){
+  case 'v':return e[n.n];
+  case 'n':return !ev(n.a,e);
+  case 'and':return ev(n.a,e)&&ev(n.b,e);
+  case 'or':return ev(n.a,e)||ev(n.b,e);
+  case 'imp':return !ev(n.a,e)||ev(n.b,e);
+  case 'iff':return ev(n.a,e)===ev(n.b,e);}}
+function vars(n,s=new Set()){ if(n.t==='v')s.add(n.n); else {vars(n.a,s); if(n.b)vars(n.b,s);} return s; }
+function assignments(vs){const out=[];for(let m=0;m<(1<<vs.length);m++){const e={};vs.forEach((v,i)=>e[v]=!(m>>(vs.length-1-i)&1));out.push(e);}return out;}
+function falsifiers(n){const vs=[...vars(n)].sort();return assignments(vs).filter(e=>!ev(n,e));}
+function subst(n,map,collapse){
+  if(n.t==='v')return map[n.n];
+  if(n.t==='n'){const a=subst(n.a,map,collapse); if(collapse&&n.a.t==='v'&&a.t==='n')return a.a; return N(a);}
+  return {t:n.t,a:subst(n.a,map,collapse),b:subst(n.b,map,collapse)};
+}
+function wrapP(s,d){const c='p'+Math.min(d,3);return '<span class="'+c+'">(</span>'+s+'<span class="'+c+'">)</span>';}
+function html(n,d=0){
+  if(n.t==='v')return '<i>'+n.n+'</i>';
+  if(n.t==='n'){ if(n.a.t==='v'||n.a.t==='n')return '¬'+html(n.a,d); return '¬'+wrapP(html(n.a,d+1),d+1); }
+  const side=x=>(x.t==='v'||x.t==='n')?html(x,d):wrapP(html(x,d+1),d+1);
+  return side(n.a)+' <span class="op">'+SYM[n.t]+'</span> '+side(n.b);
+}
+function text(n,top=true){
+  if(n.t==='v')return n.n;
+  if(n.t==='n')return '¬'+((n.a.t==='v'||n.a.t==='n')?text(n.a,false):'('+text(n.a,true)+')');
+  const side=x=>(x.t==='v'||x.t==='n')?text(x,false):'('+text(x,true)+')';
+  return side(n.a)+' '+SYM[n.t]+' '+side(n.b);
+}
+
+function shuffle(a,rnd=Math.random){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function pick(a,rnd=Math.random){return a[Math.floor(rnd()*a.length)];}
+
+function makeQuestion(level,avoid,rnd=Math.random){
+  const wantTaut=rnd()<0.5;
+  let pool=SCHEMAS.filter(s=>s.lv<=level&&s.taut===wantTaut&&s!==avoid);
+  if(level===3&&rnd()<0.6){const hard=pool.filter(s=>s.lv>=2); if(hard.length)pool=hard;}
+  const s=pick(pool,rnd);
+  const letters=[...vars(s.f)].sort();
+  const names=shuffle(['P','Q','R'],rnd);
+  const map={}; let simple=true;
+  letters.forEach((L,i)=>{
+    let lit=V(names[i]);
+    if(level>=2&&!s.plain&&rnd()<(level===2?0.3:0.4)){lit=N(lit);simple=false;}
+    map[L]=lit;
+  });
+  if(level===3&&!s.plain&&letters.length===2&&rnd()<0.5){
+    const L=pick(letters,rnd), base=map[L], extra=V(names[2]);
+    const mk=pick([And,Or,Imp],rnd);
+    map[L]=rnd()<0.5?mk(base,extra):mk(extra,base); simple=false;
+  }
+  const f=subst(s.f,map,level===2);
+  const fs=falsifiers(f);
+  return {schema:s,f,map,letters,simple,taut:fs.length===0,fals:fs};
+}
+//CORE-END
+
+// ---------- game ----------
+const $=id=>document.getElementById(id);
+const st={};
+const PENALTY=5000;
+
+function cfg(){
+  return {mode:document.querySelector('input[name=mode]:checked').value,
+          lvl:+document.querySelector('input[name=lvl]:checked').value,
+          cex:$('cexOpt').checked};
+}
+function bestKey(c){return 'breakit:'+c.mode+':'+c.lvl+':'+(c.cex?1:0);}
+function getBest(c){try{return +localStorage.getItem(bestKey(c))||0;}catch(e){return 0;}}
+function setBest(c,v){try{localStorage.setItem(bestKey(c),String(v));}catch(e){}}
+function showBest(){const c=cfg();const b=getBest(c);$('bestLine').textContent=b?('Best for this setup: '+b):'';}
+document.querySelectorAll('.settings input').forEach(i=>i.addEventListener('change',showBest));
+showBest();
+
+function show(id){['start','play','end'].forEach(s=>$(s).hidden=(s!==id));window.scrollTo(0,0);}
+
+function startRound(){
+  const c=cfg();
+  Object.assign(st,{c,score:0,streak:0,answered:0,missed:[],phase:'answer',q:null,
+    total:c.mode==='sprint'?(c.cex?90000:60000):0,activeMs:0,last:performance.now(),running:true});
+  st.left=st.total;
+  $('hTimeBox').hidden=c.mode!=='sprint';
+  $('fuse').style.visibility=c.mode==='sprint'?'visible':'hidden';
+  show('play'); nextQuestion(); requestAnimationFrame(tick);
+}
+function level(){ if(st.c.lvl)return st.c.lvl; return st.score<5?1:st.score<12?2:3; }
+
+function nextQuestion(){
+  st.q=makeQuestion(level(),st.q&&st.q.schema);
+  st.phase='answer';
+  const len=text(st.q.f).length;
+  const fs=len<=18?3.1:len<=30?2.5:len<=42?2.05:1.75;
+  $('formula').style.setProperty('--fs','min('+fs+'rem,'+(len<=18?9:len<=30?6.4:5.4)+'vw + .6rem)');
+  $('formula').innerHTML='<span>'+html(st.q.f)+'</span>';
+  $('panel').hidden=true; $('cex').hidden=true; $('answers').hidden=false;
+  $('bT').disabled=$('bF').disabled=false;
+  $('fuse').className='clock';
+  hud();
+}
+function hud(){
+  $('hScore').textContent=st.score; $('hStreak').textContent=st.streak; $('hLvl').textContent=level();
+  if(st.total){$('hTime').textContent=Math.max(0,Math.ceil(st.left/1000));
+    $('fuseBar').style.transform='scaleX('+Math.max(0,st.left/st.total)+')';}
+}
+function tick(now){
+  if(!st.running)return;
+  const dt=now-st.last; st.last=now;
+  if(st.phase!=='feedback'&&st.phase!=='flash'){
+    st.activeMs+=dt;
+    if(st.total){st.left-=dt; if(st.left<=0){st.left=0;hud();return endRound();}}
+  }
+  hud(); requestAnimationFrame(tick);
+}
+
+function answer(choice){
+  if(st.phase!=='answer')return;
+  const q=st.q;
+  $(choice==='taut'?'bT':'bF').classList.add('hit');
+  setTimeout(()=>{$('bT').classList.remove('hit');$('bF').classList.remove('hit');},160);
+  if(q.taut){ choice==='taut'?correct():wrong('It is a tautology'); }
+  else if(choice==='taut'){ wrong('It can be falsified'); }
+  else if(st.c.cex){ openCex(); }
+  else correct();
+}
+function openCex(){
+  st.phase='cex';
+  $('bT').disabled=$('bF').disabled=true;
+  const vs=[...vars(st.q.f)].sort(); st.env={};
+  $('chips').innerHTML='';
+  vs.forEach(v=>{st.env[v]=true;
+    const b=document.createElement('button');b.className='value';b.dataset.k=v;
+    b.addEventListener('click',()=>{flip(v);b.blur();});$('chips').appendChild(b);});
+  paintChips(); $('cex').hidden=false;
+}
+function flip(v){ if(st.phase!=='cex'||!(v in st.env))return; st.env[v]=!st.env[v]; paintChips(); }
+function paintChips(){ [...$('chips').children].forEach(b=>{const v=b.dataset.k,val=st.env[v]?'T':'F';b.dataset.v=val;b.innerHTML='<i>'+v+'</i> = '+val;b.setAttribute('aria-label',v+' is '+(st.env[v]?'true':'false')+', press to flip');}); }
+function checkCex(){
+  if(st.phase!=='cex')return;
+  if(!ev(st.q.f,st.env))correct();
+  else wrong('That assignment makes it true');
+}
+
+function correct(){
+  st.score++; st.streak++; st.answered++;
+  if(st.c.mode==='practice'){ feedback(true,st.q.taut?'Correct, it is a tautology':'Correct, it can be falsified'); }
+  else{
+    st.phase='flash'; $('fuse').className='clock ok'; hud();
+    setTimeout(()=>{ if(st.running)nextQuestion(); },220);
+  }
+}
+function wrong(head){
+  st.streak=0; st.answered++;
+  if(st.total){st.left=Math.max(0,st.left-PENALTY);}
+  $('fuse').className='clock no';
+  st.missed.push({h:html(st.q.f),taut:st.q.taut,body:explain(st.q)});
+  feedback(false,head);
+}
+function envText(e){return Object.keys(e).sort().map(k=>'<i>'+k+'</i> = '+(e[k]?'T':'F')).join(', ');}
+function explain(q){
+  const s=q.schema; let why=s.why, out='';
+  if(q.simple){ why=why.replace(/\b[ABC]\b/g,m=>q.map[m]?q.map[m].n:m); }
+  else{
+    out+='<p>Shape: <span class="m">'+text(s.f)+'</span>, with '+
+      q.letters.map(L=>'<span class="m">'+L+' = '+text(q.map[L])+'</span>').join(', ')+'.</p>';
+  }
+  out+='<p>'+why+'</p>';
+  if(!q.taut){
+    const shown=q.fals.slice(0,2).map(envText).join(' &nbsp;or&nbsp; ');
+    out+='<p>False when <span class="m">'+shown+'</span>'+(q.fals.length>2?' (and '+(q.fals.length-2)+' more)':'')+'.</p>';
+  }
+  return '<p class="name">'+s.name+'</p>'+out;
+}
+function feedback(good,head){
+  st.phase='feedback';
+  $('answers').hidden=true; $('cex').hidden=true;
+  const p=$('panel'); p.className='feedback '+(good?'good':'bad');
+  $('pHead').textContent=head; $('pName').hidden=true;
+  $('pBody').innerHTML=explain(st.q);
+  p.hidden=false; hud();
+  if(st.total&&st.left<=0){ $('nextBtn').textContent='See results'; } else $('nextBtn').textContent='Next formula';
+}
+function advance(){
+  if(st.phase!=='feedback')return;
+  if(st.total&&st.left<=0)return endRound();
+  st.last=performance.now(); nextQuestion();
+}
+
+function endRound(){
+  st.running=false; st.phase='over';
+  const c=st.c, prev=getBest(c), isBest=st.score>prev;
+  if(isBest)setBest(c,st.score);
+  $('eHead').textContent=c.mode==='sprint'?(isBest&&st.score>0?'Time. New best.':'Time.'):'Session over.';
+  $('eScore').textContent=st.score;
+  $('eAcc').textContent=st.answered?Math.round(100*st.score/st.answered)+'%':'–';
+  $('eAvg').textContent=st.answered?(st.activeMs/1000/st.answered).toFixed(1):'–';
+  $('eBest').textContent=Math.max(prev,st.score);
+  const m=$('missed');
+  if(st.missed.length){
+    m.innerHTML='<h2>Formulas you missed</h2><ul class="missed">'+st.missed.map(x=>
+      '<li><div class="mf">'+x.h+'</div><p class="ok">'+(x.taut?'Tautology':'Can be falsified')+'</p><div class="why">'+x.body+'</div></li>').join('')+'</ul>';
+  } else m.innerHTML=st.answered?'<h2>No misses this round.</h2>':'';
+  show('end'); showBest();
+}
+
+$('goBtn').addEventListener('click',startRound);
+$('againBtn').addEventListener('click',startRound);
+$('setupBtn').addEventListener('click',()=>show('start'));
+$('quitBtn').addEventListener('click',endRound);
+$('bT').addEventListener('click',e=>{answer('taut');e.currentTarget.blur();});
+$('bF').addEventListener('click',e=>{answer('fals');e.currentTarget.blur();});
+$('cexBtn').addEventListener('click',checkCex);
+$('nextBtn').addEventListener('click',advance);
+
+document.addEventListener('keydown',e=>{
+  if($('play').hidden||e.metaKey||e.ctrlKey||e.altKey)return;
+  const k=e.key.toLowerCase(); let used=true;
+  if(st.phase==='answer'){ if(k==='t'||k==='arrowleft')answer('taut'); else if(k==='f'||k==='arrowright')answer('fals'); else used=false; }
+  else if(st.phase==='cex'){ if(k==='p'||k==='q'||k==='r')flip(k.toUpperCase()); else if(k==='enter')checkCex(); else used=false; }
+  else if(st.phase==='feedback'){ if(k==='enter'||k===' ')advance(); else used=false; }
+  else used=false;
+  if(used)e.preventDefault();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Logic rapid fire</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="drills.css">
+<style>
+/* the inference bar: premises above, conclusion below, the bar itself is the clock (double bar = replacement) */
+.stage>*{width:100%} .fig .scroll{overflow-x:auto;max-width:100%}
+.fig .top{min-height:2.6em;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:.6rem} .fig .bottom{min-height:1.9em;padding-top:.6rem}
+.barrow{display:grid;grid-template-columns:1fr auto;align-items:center;gap:.75rem} .barrow .clock{margin:0}
+.barrow .tag{font-family:var(--ui);font-size:1rem;font-weight:700;min-width:2.2rem;text-align:left;color:var(--muted)}
+.clock.double{height:14px;background:none;border-block:4px solid var(--line);border-radius:0;overflow:visible}
+.clock.double i{position:relative;top:-4px;height:14px;background:none;border-block:4px solid var(--navy)}
+.clock.double.low i{background:none;border-color:var(--clock)}
+#warn{color:var(--bad)} .fig~.prompt{margin:1.25rem 0} @media (max-width:30rem){.hud{column-gap:1rem}}
+</style>
+</head>
+<body>
+<main class="page">
+
+<section id="start">
+  <header class="masthead">
+    <p class="eyebrow"><a href="index.html">Analysis I</a> · Chapter 1 · Rules of inference and rules of replacement</p>
+    <h1>Logic rapid fire</h1>
+    <p class="lede">Rules of inference, rules of replacement and truth values, one question at a time. The bar in the middle of each question is your clock. Keys 1 to 4 pick an answer.</p>
+  </header>
+
+  <div class="settings">
+    <div class="field">
+      <span class="field-label">What to practise</span>
+      <div class="chips">
+        <label class="chip"><input type="checkbox" name="topic" value="inf" checked>Rules of inference</label>
+        <label class="chip"><input type="checkbox" name="topic" value="rep" checked>Rules of replacement</label>
+        <label class="chip"><input type="checkbox" name="topic" value="tv" checked>Truth values</label>
+      </div>
+    </div>
+    <div class="field">
+      <span class="field-label">Round length</span>
+      <div class="chips">
+        <label class="chip"><input type="radio" name="len" value="60" checked>60 seconds</label>
+        <label class="chip"><input type="radio" name="len" value="120">2 minutes</label>
+        <label class="chip"><input type="radio" name="len" value="0">Untimed</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions"><button class="btn btn-lg" id="startBtn">Start round</button><span class="best" id="best"></span></div>
+  <p class="hint" id="warn" hidden>Pick at least one thing to practise.</p>
+  <p class="hint"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> pick an answer.</p>
+</section>
+
+<section id="play" hidden>
+  <div class="panel">
+    <div class="hud">
+      <div class="stat"><b id="score">0</b>Score</div>
+      <div class="stat"><b id="streak">0</b>Streak</div>
+      <div class="stat"><b id="time">1:00</b>Time</div>
+      <span class="spacer"></span>
+      <button class="btn-link" id="endBtn">End round</button>
+    </div>
+
+    <div class="stage">
+      <div class="fig formula" id="figure">
+        <div class="scroll"><div class="top" id="top"></div></div>
+        <div class="barrow">
+          <div class="clock" id="bar"><i id="fill"></i></div>
+          <span class="tag" id="tag"></span>
+        </div>
+        <div class="scroll"><div class="bottom" id="bottom"></div></div>
+      </div>
+
+      <p class="prompt" id="prompt"></p>
+      <div class="options two" id="options"></div>
+
+      <div class="feedback bad" id="feedback" aria-live="polite" hidden>
+        <p id="explain"></p>
+        <button class="btn" id="nextBtn">Next question</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="end" hidden class="results">
+  <h2>Round over</h2>
+  <p class="tally" id="tally"></p>
+  <p class="lede" id="summary"></p>
+  <p id="newbest" hidden>New best for this round length.</p>
+  <h2 id="reviewHead">Review these</h2>
+  <ul class="missed" id="review"></ul>
+  <div class="actions">
+    <button class="btn" id="againBtn">Play again</button>
+    <button class="btn btn-outline" id="settingsBtn">Change settings</button>
+  </div>
+</section>
+
+<footer class="site-footer"><span></span><a href="index.html">All Analysis I drills</a></footer>
+</main>
+<script>
+(function(){
+'use strict';
+
+/* ---------- formulas ---------- */
+var V=function(n){return {t:'v',n:n}}, N=function(a){return {t:'n',a:a}};
+var B=function(t,a,b){return {t:t,a:a,b:b}};
+var AND=function(a,b){return B('and',a,b)}, OR=function(a,b){return B('or',a,b)};
+var IMP=function(a,b){return B('imp',a,b)}, IFF=function(a,b){return B('iff',a,b)};
+var SYM={and:'\u2227',or:'\u2228',imp:'\u2192',iff:'\u2194'};
+var NOT='\u00AC';
+
+function str(x,top){
+  if(top===undefined)top=true;
+  if(x.t==='v')return x.n;
+  if(x.t==='n')return NOT+str(x.a,false);
+  var s=str(x.a,false)+' '+SYM[x.t]+' '+str(x.b,false);
+  return top?s:'('+s+')';
+}
+function ital(s){return s.replace(/[A-Z]/g,function(m){return '<i>'+m+'</i>'})}
+function html(x){return ital(str(x))}
+function ev(x,env){
+  switch(x.t){
+    case 'v':return env[x.n];
+    case 'n':return !ev(x.a,env);
+    case 'and':return ev(x.a,env)&&ev(x.b,env);
+    case 'or':return ev(x.a,env)||ev(x.b,env);
+    case 'imp':return !ev(x.a,env)||ev(x.b,env);
+    case 'iff':return ev(x.a,env)===ev(x.b,env);
+  }
+}
+function varsOf(x,set){
+  if(x.t==='v')set[x.n]=1; else if(x.t==='n')varsOf(x.a,set); else{varsOf(x.a,set);varsOf(x.b,set)}
+  return set;
+}
+function envs(list){
+  var set={};list.forEach(function(f){varsOf(f,set)});
+  var names=Object.keys(set).sort(),out=[];
+  for(var i=0;i<(1<<names.length);i++){
+    var e={};names.forEach(function(n,j){e[n]=!(i>>(names.length-1-j)&1)});out.push(e);
+  }
+  return out;
+}
+function counterexample(prems,c){
+  var all=envs(prems.concat([c]));
+  for(var i=0;i<all.length;i++){
+    var e=all[i];
+    if(prems.every(function(p){return ev(p,e)})&&!ev(c,e))return e;
+  }
+  return null;
+}
+function entails(prems,c){return counterexample(prems,c)===null}
+function equiv(a,b){return envs([a,b]).every(function(e){return ev(a,e)===ev(b,e)})}
+function subst(x,map){
+  if(x.t==='v')return map[x.n]||x;
+  if(x.t==='n')return N(subst(x.a,map));
+  return B(x.t,subst(x.a,map),subst(x.b,map));
+}
+function neg(x){return x.t==='n'?x.a:N(x)}
+
+/* near-miss versions of a formula: one local change each */
+function mutations(x){
+  var out=[];
+  if(x.t==='v'){out.push(N(x));return out}
+  if(x.t==='n'){
+    out.push(x.a);
+    mutations(x.a).forEach(function(m){out.push(N(m))});
+    return out;
+  }
+  if(x.t==='and')out.push(OR(x.a,x.b));
+  if(x.t==='or')out.push(AND(x.a,x.b));
+  if(x.t==='imp'){out.push(IMP(x.b,x.a));out.push(IMP(neg(x.a),neg(x.b)));out.push(AND(x.a,x.b))}
+  if(x.t==='iff'){out.push(IMP(x.a,x.b));out.push(IFF(x.a,neg(x.b)))}
+  out.push(N(x));
+  mutations(x.a).forEach(function(m){out.push(B(x.t,m,x.b))});
+  mutations(x.b).forEach(function(m){out.push(B(x.t,x.a,m))});
+  return out;
+}
+function pool(letters){
+  var out=[];
+  letters.forEach(function(a){out.push(a);out.push(N(a))});
+  letters.forEach(function(a){letters.forEach(function(b){
+    if(a===b)return;
+    out.push(IMP(a,b));out.push(AND(a,b));out.push(OR(a,b));out.push(OR(N(a),b));
+  })});
+  return out;
+}
+
+/* ---------- the rules ---------- */
+var P=V('P'),Q=V('Q'),R=V('R'),S=V('S');
+var INF=[
+  {k:'MP',name:'Modus Ponens',p:[IMP(P,Q),P],c:Q},
+  {k:'MT',name:'Modus Tollens',p:[IMP(P,Q),N(Q)],c:N(P)},
+  {k:'HS',name:'Hypothetical Syllogism',p:[IMP(P,Q),IMP(Q,R)],c:IMP(P,R)},
+  {k:'DS',name:'Disjunctive Syllogism',p:[OR(P,Q),N(P)],c:Q},
+  {k:'Add',name:'Addition',p:[P],c:OR(P,Q)},
+  {k:'Simp',name:'Simplification',p:[AND(P,Q)],c:P},
+  {k:'Conj',name:'Conjunction',p:[P,Q],c:AND(P,Q)},
+  {k:'Res',name:'Resolution',p:[OR(P,Q),OR(N(P),R)],c:OR(Q,R)},
+  {k:'CD',name:'Constructive Dilemma',p:[AND(IMP(P,Q),IMP(R,S)),OR(P,R)],c:OR(Q,S)},
+  {k:'DD',name:'Destructive Dilemma',p:[AND(IMP(P,Q),IMP(R,S)),OR(N(Q),N(S))],c:OR(N(P),N(R))}
+];
+var FALL=[
+  {name:'Affirming the consequent',p:[IMP(P,Q),Q],c:P},
+  {name:'Denying the antecedent',p:[IMP(P,Q),N(P)],c:N(Q)},
+  {name:'Affirming a disjunct',p:[OR(P,Q),P],c:N(Q)},
+  {name:'Taking the converse',p:[IMP(P,Q)],c:IMP(Q,P)},
+  {name:'Taking the inverse',p:[IMP(P,Q)],c:IMP(N(P),N(Q))},
+  {name:'Broken hypothetical syllogism',p:[IMP(P,Q),IMP(R,Q)],c:IMP(P,R)},
+  {name:'Simplifying a disjunction',p:[OR(P,Q)],c:P},
+  {name:'Adding a conjunct',p:[P],c:AND(P,Q)},
+  {name:'Constructive dilemma run backwards',p:[AND(IMP(P,Q),IMP(R,S)),OR(Q,S)],c:OR(P,R)},
+  {name:'Broken resolution',p:[OR(P,Q),OR(N(P),R)],c:AND(Q,R)}
+];
+var REP=[
+  {k:'DM',name:"De Morgan's Theorem",l:N(AND(P,Q)),r:OR(N(P),N(Q))},
+  {k:'DM',name:"De Morgan's Theorem",l:N(OR(P,Q)),r:AND(N(P),N(Q))},
+  {k:'Com',name:'Commutation',l:OR(P,Q),r:OR(Q,P)},
+  {k:'Com',name:'Commutation',l:AND(P,Q),r:AND(Q,P)},
+  {k:'Assoc',name:'Association',l:OR(P,OR(Q,R)),r:OR(OR(P,Q),R)},
+  {k:'Assoc',name:'Association',l:AND(P,AND(Q,R)),r:AND(AND(P,Q),R)},
+  {k:'Dist',name:'Distribution',l:AND(P,OR(Q,R)),r:OR(AND(P,Q),AND(P,R))},
+  {k:'Dist',name:'Distribution',l:OR(P,AND(Q,R)),r:AND(OR(P,Q),OR(P,R))},
+  {k:'DN',name:'Double Negation',l:P,r:N(N(P))},
+  {k:'Trans',name:'Transposition',l:IMP(P,Q),r:IMP(N(Q),N(P))},
+  {k:'Impl',name:'Material Implication',l:IMP(P,Q),r:OR(N(P),Q)},
+  {k:'Equiv',name:'Material Equivalence',l:IFF(P,Q),r:AND(IMP(P,Q),IMP(Q,P))},
+  {k:'Equiv',name:'Material Equivalence',l:IFF(P,Q),r:OR(AND(P,Q),AND(N(P),N(Q)))},
+  {k:'Exp',name:'Exportation',l:IMP(AND(P,Q),R),r:IMP(P,IMP(Q,R))}
+];
+var OPNOTE={
+  and:SYM.and+' is true only when both sides are true.',
+  or:SYM.or+' is false only when both sides are false.',
+  imp:SYM.imp+' is false only when the left side is true and the right side is false.',
+  iff:SYM.iff+' is true exactly when both sides have the same value.'
+};
+
+/* sanity check on the rule tables */
+INF.forEach(function(r){console.assert(entails(r.p,r.c),'invalid rule',r.k)});
+FALL.forEach(function(r){console.assert(!entails(r.p,r.c),'fallacy is valid',r.name)});
+REP.forEach(function(r){console.assert(equiv(r.l,r.r),'not equivalent',r.k)});
+
+/* ---------- helpers ---------- */
+function rnd(n){return Math.floor(Math.random()*n)}
+function pick(a){return a[rnd(a.length)]}
+function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=rnd(i+1),t=a[i];a[i]=a[j];a[j]=t}return a}
+var LETTERS=[['P','Q','R','S'],['A','B','C','D'],['X','Y','Z','W']];
+function full(r){return r.name+' ('+r.k+')'}
+
+function makeSubst(forms,hard){
+  var set={};forms.forEach(function(f){varsOf(f,set)});
+  var metas=Object.keys(set).sort();
+  var letters=shuffle(pick(LETTERS)),map={};
+  metas.forEach(function(m,i){map[m]=V(letters[i])});
+  if(hard&&Math.random()<0.35){var m=pick(metas);map[m]=N(map[m])}
+  return {map:map,letters:letters.map(V)};
+}
+function distractors(correct,primary,extra,isWrong){
+  var seen={};seen[str(correct)]=1;
+  var out=[];
+  [shuffle(primary),shuffle(extra)].forEach(function(list){
+    list.forEach(function(x){
+      var s=str(x);
+      if(out.length>=3||seen[s]||s.length>34||!isWrong(x))return;
+      seen[s]=1;out.push(x);
+    });
+  });
+  return out;
+}
+function formulaOptions(correct,wrongs){
+  return shuffle([{h:html(correct),ok:true}].concat(wrongs.map(function(w){return {h:html(w),ok:false}})));
+}
+function nameOptions(rule,table){
+  var names={};table.forEach(function(r){names[full(r)]=1});
+  var others=shuffle(Object.keys(names).filter(function(n){return n!==full(rule)})).slice(0,3);
+  return shuffle([{h:full(rule),ok:true,word:true}].concat(others.map(function(n){return {h:n,ok:false,word:true}})));
+}
+function premLines(ps){return ps.map(function(p){return html(p)})}
+function joinAnd(parts){
+  if(parts.length===1)return parts[0];
+  return parts.slice(0,-1).join(', ')+' and '+parts[parts.length-1];
+}
+function infSentence(r,ps,c){
+  return '<b>'+full(r)+'</b>: from <span class="m">'+joinAnd(ps.map(html))+'</span>, derive <span class="m">'+html(c)+'</span>.';
+}
+
+/* ---------- question makers ---------- */
+function qApply(hard){
+  var r=pick(INF),s=makeSubst(r.p.concat([r.c]),hard);
+  var ps=r.p.map(function(p){return subst(p,s.map)}),c=subst(r.c,s.map);
+  var wrong=distractors(c,mutations(c),pool(s.letters),function(x){return !entails(ps,x)});
+  return {id:'apply:'+r.k,label:full(r),form:'From '+joinAnd(r.p.map(html))+', derive '+html(r.c),
+    top:premLines(ps),bottom:'?',tag:'',tagAfter:r.k,dbl:false,prompt:'What follows?',
+    options:formulaOptions(c,wrong),explain:infSentence(r,ps,c)};
+}
+function qNameInf(hard){
+  var r=pick(INF),s=makeSubst(r.p.concat([r.c]),hard);
+  var ps=r.p.map(function(p){return subst(p,s.map)}),c=subst(r.c,s.map);
+  return {id:'nameinf:'+r.k,label:full(r),form:'From '+joinAnd(r.p.map(html))+', derive '+html(r.c),
+    top:premLines(ps),bottom:html(c),tag:'?',tagAfter:r.k,dbl:false,prompt:'Which rule of inference is this?',
+    options:nameOptions(r,INF),explain:infSentence(r,ps,c)};
+}
+function qValid(hard){
+  var good=Math.random()<0.5,r=pick(good?INF:FALL),s=makeSubst(r.p.concat([r.c]),hard);
+  var ps=r.p.map(function(p){return subst(p,s.map)}),c=subst(r.c,s.map),explain;
+  if(good){
+    explain='Valid. '+infSentence(r,ps,c);
+  }else{
+    var e=counterexample(ps,c);
+    var vals=Object.keys(e).map(function(n){return '<i>'+n+'</i> '+(e[n]?'true':'false')}).join(', ');
+    explain='Invalid. This is the mistake called <b>'+r.name.toLowerCase()+'</b>. Counterexample: '+vals+' makes every premise true and the conclusion false.';
+  }
+  return {id:'valid:'+r.name,label:good?full(r):r.name+' (invalid form)',
+    form:'From '+joinAnd(r.p.map(html))+', '+(good?'derive ':'you cannot derive ')+html(r.c),
+    top:premLines(ps),bottom:html(c),tag:'',tagAfter:good?r.k:'\u2717',dbl:false,prompt:'Is this inference valid?',
+    options:[{h:'Valid',ok:good,word:true},{h:'Invalid',ok:!good,word:true}],explain:explain};
+}
+function qEquiv(hard){
+  var r=pick(REP),s=makeSubst([r.l,r.r],hard);
+  var l=subst(r.l,s.map),rr=subst(r.r,s.map);
+  var flip=Math.random()<0.5,shown=flip?rr:l,correct=flip?l:rr;
+  var wrong=distractors(correct,mutations(correct),pool(s.letters),function(x){return !equiv(shown,x)});
+  return {id:'equiv:'+r.k+str(r.l),label:full(r),form:html(r.l)+' = '+html(r.r),
+    top:[html(shown)],bottom:'?',tag:'',tagAfter:r.k,dbl:true,prompt:'Which one is logically equivalent?',
+    options:formulaOptions(correct,wrong),
+    explain:'<b>'+full(r)+'</b>: <span class="m">'+html(l)+' = '+html(rr)+'</span>.'};
+}
+function qNameRep(hard){
+  var r=pick(REP),s=makeSubst([r.l,r.r],hard);
+  var l=subst(r.l,s.map),rr=subst(r.r,s.map),flip=Math.random()<0.5;
+  return {id:'namerep:'+r.k+str(r.l),label:full(r),form:html(r.l)+' = '+html(r.r),
+    top:[html(flip?rr:l)],bottom:html(flip?l:rr),tag:'?',tagAfter:r.k,dbl:true,prompt:'Which rule of replacement is this?',
+    options:nameOptions(r,REP),
+    explain:'<b>'+full(r)+'</b>: <span class="m">'+html(l)+' = '+html(rr)+'</span>.'};
+}
+function qTruth(){
+  var letters=shuffle(pick(LETTERS)),a=V(letters[0]),b=V(letters[1]);
+  var op=pick(['imp','imp','imp','and','or','iff','iff']);
+  var hasNeg=false,x=a,y=b;
+  if(Math.random()<0.25){x=N(a);hasNeg=true}
+  if(Math.random()<0.25){y=N(b);hasNeg=true}
+  var f=B(op,x,y);
+  if(Math.random()<0.15){f=N(f);hasNeg=true}
+  var env={};env[a.n]=Math.random()<0.5;env[b.n]=Math.random()<0.5;
+  var val=ev(f,env);
+  var names=[a.n,b.n].sort();
+  var topLine=names.map(function(n){return '<i>'+n+'</i> is '+(env[n]?'true':'false')}).join(', ');
+  return {id:'tv:'+op+str(f)+env[a.n]+env[b.n],label:'Truth value of '+SYM[op],form:OPNOTE[op],
+    top:[topLine],bottom:html(f),tag:'',tagAfter:'',dbl:false,prompt:'Is the bottom line true or false?',
+    options:[{h:'True',ok:val,word:true},{h:'False',ok:!val,word:true}],
+    explain:OPNOTE[op]+(hasNeg?' '+NOT+' flips a value.':'')+' Here the formula is <b>'+(val?'true':'false')+'</b>.'};
+}
+var MAKERS={inf:[qApply,qApply,qNameInf,qValid],rep:[qEquiv,qEquiv,qNameRep],tv:[qTruth]};
+
+function makeQuestion(topics,hard,lastId){
+  for(var i=0;i<8;i++){
+    var q=pick(MAKERS[pick(topics)])(hard);
+    var okCount=q.options.filter(function(o){return o.ok}).length;
+    if(q.id!==lastId&&okCount===1&&q.options.length>=2)return q;
+  }
+  return qTruth();
+}
+window.__logicTest={makeQuestion:makeQuestion};
+
+/* ---------- game ---------- */
+var $=function(id){return document.getElementById(id)};
+var st=null,raf=0;
+
+function bestKey(len){return 'logic-rapid-fire-best-'+len}
+function readBest(len){try{var v=localStorage.getItem(bestKey(len));return v?parseInt(v,10)||0:0}catch(e){return 0}}
+function writeBest(len,v){try{localStorage.setItem(bestKey(len),String(v))}catch(e){}}
+function lenLabel(len){return len===0?'untimed':(len===60?'60 seconds':'2 minutes')}
+function showBest(){
+  var len=parseInt(document.querySelector('input[name=len]:checked').value,10),b=readBest(len);
+  $('best').textContent=b>0?'Best '+(len===0?'untimed round':'in '+lenLabel(len))+': '+b+' correct.':'';
+}
+function screen(name){['start','play','end'].forEach(function(s){$(s).hidden=s!==name});window.scrollTo(0,0)}
+
+function startRound(){
+  var topics=[].slice.call(document.querySelectorAll('input[name=topic]:checked')).map(function(i){return i.value});
+  if(!topics.length){$('warn').hidden=false;return}
+  $('warn').hidden=true;
+  var len=parseInt(document.querySelector('input[name=len]:checked').value,10);
+  st={topics:topics,len:len,remaining:len*1000,paused:false,locked:false,score:0,wrong:0,streak:0,bestStreak:0,missed:{},q:null,last:0,over:false};
+  screen('play');
+  $('bar').classList.remove('low');
+  updateStrip();nextQuestion();
+  cancelAnimationFrame(raf);st.last=0;raf=requestAnimationFrame(tick);
+}
+function tick(ts){
+  if(!st||st.over)return;
+  if(st.last&&!st.paused&&st.len>0){st.remaining-=Math.min(ts-st.last,250)}
+  st.last=ts;
+  if(st.len>0){
+    var frac=Math.max(0,st.remaining/(st.len*1000));
+    $('fill').style.transform='scaleX('+frac+')';
+    var secs=Math.max(0,Math.ceil(st.remaining/1000));
+    $('time').textContent=Math.floor(secs/60)+':'+('0'+secs%60).slice(-2);
+    $('bar').classList.toggle('low',st.remaining<10000);
+    if(st.remaining<=0){endRound();return}
+  }else{
+    $('fill').style.transform='scaleX(1)';$('time').textContent='Untimed';
+  }
+  raf=requestAnimationFrame(tick);
+}
+function updateStrip(){$('score').textContent=st.score;$('streak').textContent=st.streak}
+
+function nextQuestion(){
+  if(!st||st.over)return;
+  var q=makeQuestion(st.topics,st.streak>=5,st.q?st.q.id:null);
+  st.q=q;st.locked=false;st.paused=false;
+  $('top').innerHTML=q.top.map(function(l){return '<div>'+l+'</div>'}).join('');
+  $('bottom').innerHTML=q.bottom;
+  $('tag').textContent=q.tag;
+  $('bar').classList.toggle('double',q.dbl);
+  $('prompt').textContent=q.prompt;
+  $('feedback').hidden=true;
+  var box=$('options');box.innerHTML='';
+  q.options.forEach(function(o,i){
+    var b=document.createElement('button');
+    b.className='option'+(o.word?'':' math-option');
+    b.innerHTML='<span class="k">'+(i+1)+'</span><span>'+o.h+'</span>';
+    b.addEventListener('click',function(){answer(i)});
+    box.appendChild(b);
+  });
+}
+function answer(i){
+  if(!st||st.over||st.locked||!st.q||i>=st.q.options.length)return;
+  st.locked=true;
+  var q=st.q,btns=$('options').children,o=q.options[i];
+  [].forEach.call(btns,function(b){b.disabled=true});
+  if(o.ok){
+    st.score++;st.streak++;if(st.streak>st.bestStreak)st.bestStreak=st.streak;
+    btns[i].classList.add('good');updateStrip();
+    setTimeout(nextQuestion,140);
+  }else{
+    st.wrong++;st.streak=0;st.paused=true;updateStrip();
+    btns[i].classList.add('bad');
+    q.options.forEach(function(x,j){if(x.ok)btns[j].classList.add('good')});
+    if(q.tagAfter)$('tag').textContent=q.tagAfter;
+    var m=st.missed[q.label]||(st.missed[q.label]={count:0,form:q.form});m.count++;
+    $('explain').innerHTML=q.explain;
+    $('feedback').hidden=false;
+    $('nextBtn').focus();
+  }
+}
+function endRound(){
+  if(!st||st.over)return;
+  st.over=true;cancelAnimationFrame(raf);
+  var total=st.score+st.wrong,pct=total?Math.round(100*st.score/total):0;
+  $('tally').textContent=st.score+' correct';
+  $('summary').textContent=total?st.wrong+' missed, accuracy '+pct+'%, best streak '+st.bestStreak+'.':'No questions answered.';
+  var prev=readBest(st.len),isBest=st.score>prev;
+  if(isBest)writeBest(st.len,st.score);
+  $('newbest').hidden=!isBest;
+  var keys=Object.keys(st.missed).sort(function(a,b){return st.missed[b].count-st.missed[a].count});
+  $('reviewHead').textContent=keys.length?'Review these':'Nothing missed this round';
+  $('review').innerHTML=keys.map(function(k){
+    var m=st.missed[k];
+    return '<li><b>'+k+'</b> <span class="why">missed '+m.count+(m.count===1?' time':' times')+'</span><div class="mf">'+m.form+'</div></li>';
+  }).join('');
+  screen('end');$('againBtn').focus();
+}
+
+$('startBtn').addEventListener('click',startRound);
+$('againBtn').addEventListener('click',startRound);
+$('settingsBtn').addEventListener('click',function(){screen('start');showBest()});
+$('endBtn').addEventListener('click',endRound);
+$('nextBtn').addEventListener('click',nextQuestion);
+[].forEach.call(document.querySelectorAll('input[name=len]'),function(i){i.addEventListener('change',showBest)});
+document.addEventListener('keydown',function(e){
+  if(!st||st.over||$('play').hidden||e.metaKey||e.ctrlKey||e.altKey)return;
+  if(e.key>='1'&&e.key<='4'){e.preventDefault();answer(parseInt(e.key,10)-1)}
+});
+showBest();
+})();
+</script>
+</body>
+</html>

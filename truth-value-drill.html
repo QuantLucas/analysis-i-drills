@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Truth value drill</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="drills.css">
+<style>
+.formula .op{color:var(--navy);padding:0 .15em}
+</style>
+</head>
+<body>
+<main class="page">
+  <section id="start">
+    <header class="masthead">
+      <p class="eyebrow"><a href="index.html">Analysis I</a> · Chapter 1 · Semantics of propositional logic</p>
+      <h1>Truth value drill</h1>
+      <p class="lede">An expression shows up with T and F filled in. Decide whether the whole thing is true or false, as fast as you can. A miss pauses the clock and explains itself before the next one appears. Connectives you miss come back more often.</p>
+    </header>
+    <div class="settings">
+      <div class="field"><span class="field-label">Length</span><div class="chips" id="durRow"></div></div>
+      <div class="field"><span class="field-label">Connectives</span><div class="chips" id="typeRow"></div></div>
+      <div class="field"><span class="field-label">Difficulty</span><div class="chips" id="negRow"></div></div>
+    </div>
+    <div class="actions"><button class="btn btn-lg" id="startBtn" type="button">Start 60-second sprint</button></div>
+    <p class="hint">Press <kbd>Space</kbd> to start. Answer with <kbd>F</kbd> or <kbd>←</kbd> for False, <kbd>T</kbd> or <kbd>→</kbd> for True. <kbd>Esc</kbd> stops and shows results.</p>
+  </section>
+
+  <section id="play" hidden>
+    <div class="panel">
+      <div class="hud">
+        <div class="stat"><b id="mTime">60</b><span id="mTimeLab">seconds left</span></div>
+        <div class="stat"><b id="mScore">0 / 0</b>right / answered</div>
+        <div class="stat"><b id="mStreak">0</b>streak</div>
+        <span class="spacer"></span>
+        <button class="btn-link" id="stopBtn" type="button">End round</button>
+      </div>
+      <div class="clock" id="barWrap"><i id="bar"></i></div>
+      <div class="stage">
+        <div id="prompt"></div>
+      </div>
+      <div class="answers">
+        <button class="answer" id="ansF" type="button" disabled>False<small>key F or ←</small></button>
+        <button class="answer" id="ansT" type="button" disabled>True<small>key T or →</small></button>
+      </div>
+      <div id="feedback" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section id="end" hidden class="results">
+    <p class="tally" id="tally"></p>
+    <p class="lede" id="tallyNote"></p>
+    <div id="results">
+      <h2>Where you stand</h2>
+      <table class="stats">
+        <thead><tr><th scope="col">Connective</th><th scope="col">Right</th><th scope="col">Accuracy</th><th scope="col">Avg time</th></tr></thead>
+        <tbody id="resBody"></tbody>
+      </table>
+      <p id="takeaway"></p>
+      <ul class="missed" id="misses"></ul>
+    </div>
+    <div class="actions"><button class="btn" id="againBtn" type="button">Play again</button> <button class="btn btn-outline" id="setBtn" type="button">Change settings</button></div>
+  </section>
+
+  <footer class="site-footer"><span id="bestLine"></span><a href="index.html">All Analysis I drills</a></footer>
+</main>
+
+<script>
+(function(){
+  var TYPES={
+    NOT:{name:'NOT',label:'¬ not',op:'¬',unary:true,f:function(a){return !a;},
+         why:function(){return '¬ flips the truth value.';}},
+    AND:{name:'AND',label:'∧ and',op:'∧',f:function(a,b){return a&&b;},
+         why:function(){return '∧ is true only when both sides are true.';}},
+    OR :{name:'OR',label:'∨ or',op:'∨',f:function(a,b){return a||b;},
+         why:function(){return '∨ is false only when both sides are false. It is inclusive, so T ∨ T is true.';}},
+    IMP:{name:'IMPLIES',label:'→ implies',op:'→',f:function(a,b){return !a||b;},
+         why:function(a,b){ return a&&!b ? 'Front true, back false: this is what a counterexample looks like. For "if n is even then n is divisible by 4", n = 6 gives T → F.'
+                         : !a ? 'The front is F, so this case cannot be a counterexample. For "if n is divisible by 4 then n is even", n = 7 gives F → F and n = 6 gives F → T, and neither one hurts the claim. Front F means answer True.'
+                         : 'Front true and back true: the claim was tested and held. For "if n is divisible by 4 then n is even", n = 8 gives T → T.'; }},
+    IFF:{name:'IFF',label:'↔ iff',op:'↔',f:function(a,b){return a===b;},
+         why:function(){return '↔ is true when the two sides match, and that includes F ↔ F.';}}
+  };
+  var ORDER=['NOT','AND','OR','IMP','IFF'];
+
+  var S={dur:60,neg:0,on:{NOT:1,AND:1,OR:1,IMP:1,IFF:1},best:{}};
+  try{
+    var saved=JSON.parse(localStorage.getItem('truthDrill')||'null');
+    if(saved&&typeof saved==='object'){
+      if([30,60,0].indexOf(saved.dur)>=0) S.dur=saved.dur;
+      S.neg=saved.neg?1:0;
+      if(saved.on) ORDER.forEach(function(k){ if(k in saved.on) S.on[k]=saved.on[k]?1:0; });
+      if(saved.best) S.best=saved.best;
+      if(!ORDER.some(function(k){return S.on[k];})) S.on.IMP=1;
+    }
+  }catch(e){}
+  function save(){ try{ localStorage.setItem('truthDrill',JSON.stringify(S)); }catch(e){} }
+
+  var run=null, timer=null;
+  var $=function(id){return document.getElementById(id);};
+  var prompt=$('prompt'), feedback=$('feedback');
+  function L(v){ return v?'T':'F'; }
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+  function show(id){
+    ['start','play','end'].forEach(function(s){ $(s).hidden=(s!==id); });
+    if(document.activeElement&&document.activeElement.blur) document.activeElement.blur();
+    window.scrollTo(0,0);
+  }
+
+  function side(v,n){ return (n?'¬':'')+L(v); }
+  function exprText(q){
+    var t=TYPES[q.type];
+    if(t.unary) return t.op+L(q.a);
+    return side(q.a,q.na)+' '+t.op+' '+side(q.b,q.nb);
+  }
+  function exprHTML(q){
+    var t=TYPES[q.type];
+    if(t.unary) return '<span class="op">'+t.op+'</span>'+L(q.a);
+    return side(q.a,q.na)+'<span class="op">'+t.op+'</span>'+side(q.b,q.nb);
+  }
+  function truthOf(q){
+    var t=TYPES[q.type];
+    if(t.unary) return !q.a;
+    return t.f(q.na?!q.a:q.a, q.nb?!q.b:q.b);
+  }
+  function whyOf(q){
+    var t=TYPES[q.type];
+    if(t.unary) return t.why();
+    var a=q.na?!q.a:q.a, b=q.nb?!q.b:q.b, pre='';
+    if(q.na||q.nb) pre='Do the negations first: this is '+L(a)+' '+t.op+' '+L(b)+'. ';
+    return pre+t.why(a,b);
+  }
+
+  function nextQuestion(){
+    var pool=ORDER.filter(function(k){return S.on[k];});
+    var weights=pool.map(function(k){ var s=run.stats[k]; return 1+Math.min(4,(s?s.n-s.right:0)*1.5); });
+    var q, tries=0;
+    do{
+      var total=weights.reduce(function(x,y){return x+y;},0), r=Math.random()*total, idx=0;
+      while(r>=weights[idx]){ r-=weights[idx]; idx++; }
+      var type=pool[idx];
+      q={type:type,a:Math.random()<.5,b:Math.random()<.5,na:false,nb:false};
+      if(TYPES[type].unary) q.b=false;
+      else if(S.neg){ q.na=Math.random()<.35; q.nb=Math.random()<.35; }
+      tries++;
+    }while(run.q && tries<12 && exprText(q)===exprText(run.q));
+    q.t0=performance.now();
+    run.q=q;
+    prompt.innerHTML='<div class="formula" aria-label="'+exprText(q)+'">'+exprHTML(q)+'</div>';
+  }
+
+  function startLabel(){ return S.dur ? 'Start '+S.dur+'-second sprint' : 'Start endless practice'; }
+  function setAnswering(onoff){
+    $('ansF').disabled=!onoff; $('ansT').disabled=!onoff;
+    Array.prototype.forEach.call(document.querySelectorAll('.chip'),function(b){ b.disabled=onoff; });
+  }
+  function meters(){
+    $('mScore').textContent=(run?run.right:0)+' / '+(run?run.total:0);
+    $('mStreak').textContent=run?run.streak:0;
+  }
+  function start(){
+    run={active:true,t0:performance.now(),right:0,total:0,streak:0,bestStreak:0,stats:{},missed:[],q:null};
+    feedback.innerHTML='';
+    setAnswering(true); meters();
+    $('barWrap').style.visibility=S.dur?'visible':'hidden';
+    $('mTimeLab').textContent=S.dur?'seconds left':'seconds elapsed';
+    show('play');
+    tick(); timer=setInterval(tick,100);
+    nextQuestion();
+  }
+  function tick(){
+    if(!run||!run.active||run.paused) return;
+    var el=(performance.now()-run.t0)/1000;
+    if(S.dur){
+      var left=Math.max(0,S.dur-el);
+      $('mTime').textContent=Math.ceil(left);
+      $('bar').style.transform='scaleX('+(left/S.dur)+')';
+      if(left<=0) finish();
+    }else $('mTime').textContent=Math.floor(el);
+  }
+  function answer(v){
+    if(!run||!run.active||run.paused) return;
+    var q=run.q, ms=performance.now()-q.t0, truth=truthOf(q), ok=(v===truth);
+    var s=run.stats[q.type]||(run.stats[q.type]={n:0,right:0,ms:0});
+    s.n++; s.ms+=ms; run.total++;
+    if(ok){ s.right++; run.right++; run.streak++; run.bestStreak=Math.max(run.bestStreak,run.streak);
+      feedback.innerHTML='<p class="flash">Correct</p>'; }
+    else{ run.streak=0;
+      var line=exprText(q)+' is '+(truth?'true':'false')+'. ';
+      run.missed.push({text:line+whyOf(q),expr:exprText(q),truth:truth,why:whyOf(q)});
+      feedback.innerHTML='<div class="feedback bad"><h3>Wrong.</h3>'
+        +'<p><span class="m">'+exprText(q)+'</span> is '+(truth?'true':'false')+'.</p>'
+        +'<p>'+esc(whyOf(q))+'</p>'
+        +'<button class="btn" id="contBtn" type="button">Next question (Space)</button></div>';
+      run.paused=true; run.pauseStart=performance.now();
+      $('ansF').disabled=true; $('ansT').disabled=true;
+      $('contBtn').addEventListener('click',cont);
+      $('contBtn').focus();
+      meters(); return; }
+    meters(); nextQuestion();
+  }
+  function cont(){
+    if(!run||!run.active||!run.paused) return;
+    run.t0+=performance.now()-run.pauseStart; run.paused=false;
+    $('ansF').disabled=false; $('ansT').disabled=false;
+    feedback.innerHTML='';
+    nextQuestion();
+  }
+  function finish(){
+    if(!run||!run.active) return;
+    run.active=false; clearInterval(timer); setAnswering(false);
+    feedback.innerHTML='';
+    var acc=run.total?Math.round(100*run.right/run.total):0;
+    var key=String(S.dur)+(S.neg?'n':''), prev=S.best[key], isBest=false;
+    if(S.dur && run.total && (!prev || run.right>prev)){ S.best[key]=run.right; isBest=true; save(); }
+    $('tally').textContent=run.right+' right out of '+run.total;
+    $('tallyNote').textContent=acc+'% accurate, longest streak '+run.bestStreak
+      +(isBest?(prev?'. New best, up from '+prev+'.':'. First score on the board.'):'');
+    results(); bestLine(); refreshIdle();
+    show('end');
+  }
+  function results(){
+    var rows=ORDER.filter(function(k){return run.stats[k];}).map(function(k){
+      var s=run.stats[k]; return {k:k,n:s.n,right:s.right,acc:s.right/s.n,avg:s.ms/s.n};
+    });
+    if(!rows.length){ $('results').hidden=true; return; }
+    rows.sort(function(x,y){ return x.acc-y.acc || y.avg-x.avg; });
+    var slow=rows.slice().sort(function(x,y){return y.avg-x.avg;})[0];
+    $('resBody').innerHTML=rows.map(function(r){
+      return '<tr><td>'+TYPES[r.k].label+'</td><td>'+r.right+' / '+r.n+'</td>'
+        +'<td class="'+(r.acc<1?'flag':'')+'">'+Math.round(r.acc*100)+'%</td>'
+        +'<td class="'+(r===slow&&rows.length>1?'flag':'')+'">'+(r.avg/1000).toFixed(2)+' s</td></tr>';
+    }).join('');
+    var msg=rows[0].acc<1?'Most missed: '+TYPES[rows[0].k].name+'. ':'No misses. ';
+    if(rows.length>1) msg+='Slowest: '+TYPES[slow.k].name+' at '+(slow.avg/1000).toFixed(2)+' s per answer. Slow but right usually means you are still working it out instead of recognising it.';
+    $('takeaway').textContent=msg;
+    var seen={}, uniq=run.missed.filter(function(m){ if(seen[m.text]) return false; seen[m.text]=1; return true; });
+    $('misses').innerHTML=uniq.map(function(m){
+      return '<li><span class="mf">'+m.expr+'</span> is <span class="ok">'+(m.truth?'true':'false')+'</span>.'
+        +'<p class="why">'+esc(m.why)+'</p></li>';
+    }).join('');
+    $('results').hidden=false;
+  }
+  function bestLine(){
+    var parts=[], names={'30':'30 seconds','60':'60 seconds','30n':'30 seconds with negations','60n':'60 seconds with negations'};
+    ['30','60','30n','60n'].forEach(function(k){ if(S.best[k]) parts.push(names[k]+': '+S.best[k]); });
+    $('bestLine').textContent=parts.length?'Best scores on this device. '+parts.join(', ')+'.':'';
+  }
+
+  function chips(rowId,items,isOn,onClick){
+    var row=$(rowId); row.innerHTML='';
+    items.forEach(function(it){
+      var b=document.createElement('button');
+      b.type='button'; b.className='chip'; b.textContent=it.label;
+      b.setAttribute('aria-pressed',isOn(it.v)?'true':'false');
+      b.addEventListener('click',function(){ onClick(it.v); save(); buildSettings(); refreshIdle(); });
+      row.appendChild(b);
+    });
+  }
+  function refreshIdle(){ $('startBtn').textContent=startLabel(); $('mTime').textContent=S.dur||0; $('mTimeLab').textContent=S.dur?'seconds left':'seconds elapsed'; $('barWrap').style.visibility=S.dur?'visible':'hidden'; $('bar').style.transform=''; }
+  function buildSettings(){
+    chips('durRow',[{label:'30 seconds',v:30},{label:'60 seconds',v:60},{label:'Endless',v:0}],
+      function(v){return S.dur===v;},function(v){S.dur=v;});
+    chips('typeRow',ORDER.map(function(k){return {label:TYPES[k].label,v:k};}),
+      function(v){return !!S.on[v];},
+      function(v){ var count=ORDER.filter(function(k){return S.on[k];}).length;
+        if(S.on[v]&&count===1) return; S.on[v]=S.on[v]?0:1; });
+    chips('negRow',[{label:'Plain: T → F',v:0},{label:'With negations: ¬T → F',v:1}],
+      function(v){return S.neg===v;},function(v){S.neg=v;});
+  }
+
+  $('ansF').addEventListener('click',function(){answer(false);});
+  $('ansT').addEventListener('click',function(){answer(true);});
+  $('startBtn').addEventListener('click',start);
+  $('againBtn').addEventListener('click',start);
+  $('stopBtn').addEventListener('click',finish);
+  $('setBtn').addEventListener('click',function(){ show('start'); });
+  document.addEventListener('keydown',function(e){
+    if(e.ctrlKey||e.metaKey||e.altKey) return;
+    var k=e.key, active=run&&run.active;
+    if(active&&run.paused){
+      if(k===' '||k==='Enter'){ e.preventDefault(); cont(); }
+      else if(k==='Escape'){ finish(); }
+      return;
+    }
+    if(active){
+      if(k==='f'||k==='F'||k==='0'||k==='ArrowLeft'){ e.preventDefault(); answer(false); }
+      else if(k==='t'||k==='T'||k==='1'||k==='ArrowRight'){ e.preventDefault(); answer(true); }
+      else if(k==='Escape'){ finish(); }
+      else if(k===' '){ e.preventDefault(); }
+    }else if(k===' '){
+      var ae=document.activeElement;
+      if(ae&&(ae.tagName==='BUTTON'||ae.tagName==='A'||ae.tagName==='INPUT')) return;
+      e.preventDefault(); start();
+    }
+  });
+
+  buildSettings(); refreshIdle(); bestLine();
+})();
+</script>
+</body>
+</html>

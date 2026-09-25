@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proof lingo drill</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="drills.css">
+</head>
+<body>
+<main class="page">
+  <section id="start">
+    <header class="masthead">
+      <p class="eyebrow"><a href="index.html">Analysis I</a> · Chapter 2 · Predicate logic and proof writing</p>
+      <h1>Proof lingo drill</h1>
+      <p class="lede">Translate phrases into logical form, judge quantified statements, pick correct negations, and name the first move of a proof. Answer with keys 1 to 4. A miss stops the clock, shows you why, and comes back a few questions later.</p>
+    </header>
+    <div class="settings">
+      <div class="field"><span class="field-label">Length</span><div class="chips" id="lenRow"></div></div>
+      <div class="field"><span class="field-label">Skills</span><div class="chips" id="catRow"></div></div>
+    </div>
+    <div class="actions"><button class="btn btn-lg" id="startBtn" type="button">Start 20 questions</button><span class="best" id="bestLine"></span></div>
+    <p class="hint">Press <kbd>Space</kbd> to start. Answer with <kbd>1</kbd> to <kbd>4</kbd> (or <kbd>T</kbd> / <kbd>F</kbd> on true-or-false questions). After a miss, <kbd>Space</kbd> continues. <kbd>Esc</kbd> stops and shows results.</p>
+  </section>
+
+  <section id="play" hidden>
+    <div class="panel">
+      <div class="hud">
+        <div class="stat"><b id="mTime">0:00</b><span id="mTimeLab">time</span></div>
+        <div class="stat"><b id="mScore">0 / 0</b>right / answered</div>
+        <div class="stat"><b id="mThird">0</b><span id="mThirdLab">left in deck</span></div>
+        <span class="spacer"></span>
+        <button class="btn-link" id="stopBtn" type="button">End round</button>
+      </div>
+      <div class="clock" id="clock" hidden><i id="clockFill"></i></div>
+      <div class="stage left" id="stage"></div>
+      <div class="flash" id="flash" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section id="end" hidden class="results">
+    <p class="tally" id="tally"></p>
+    <div class="bignums">
+      <div><b id="rAcc">0%</b><span>accurate</span></div>
+      <div><b id="rTime">0:00</b><span>time</span></div>
+      <div><b id="rMiss">0</b><span id="rMissLab">different questions missed</span></div>
+    </div>
+    <p class="lede" id="rExtra" hidden></p>
+    <div id="results" hidden>
+      <h2>Where you stand</h2>
+      <table class="stats">
+        <thead><tr><th scope="col">Skill</th><th scope="col">Right</th><th scope="col">Accuracy</th><th scope="col">Avg time</th></tr></thead>
+        <tbody id="resBody"></tbody>
+      </table>
+      <p class="lede" id="takeaway" style="margin-top:.75rem"></p>
+      <ul class="missed" id="misses"></ul>
+    </div>
+    <div class="actions"><button class="btn" id="againBtn" type="button">Play again</button> <button class="btn btn-outline" id="settingsBtn" type="button">Change settings</button></div>
+  </section>
+
+  <footer class="site-footer"><span></span><a href="index.html">All Analysis I drills</a></footer>
+</main>
+
+<script>
+(function(){
+  var CATS={translate:'Translate',quant:'Quantifier order',negate:'Negate',moves:'Proof moves'};
+  var CAT_ORDER=['translate','quant','negate','moves'];
+  var BANK=[];
+  function add(cat,id,make){ BANK.push({cat:cat,id:cat+':'+id,make:make}); }
+  function fixed(cat,id,ask,stem,options,correct,why,noShuffle){
+    add(cat,id,function(){ return {ask:ask,stem:stem,options:options.slice(),correct:correct,why:why,shuffle:!noShuffle}; });
+  }
+
+  /* ---------- Translate: phrase to logical form ---------- */
+  var T_OPTS=['P → Q','Q → P','P ↔ Q'];
+  var TEMPLATES=[
+    ['if-then','If {X}, then {Y}.','XY','The "if" clause is the hypothesis, so this is {X} → {Y}.'],
+    ['implies','{X} implies {Y}.','XY','Direct statement of {X} → {Y}.'],
+    ['q-if-p','{Y} if {X}.','XY','"If" introduces the hypothesis wherever it sits in the sentence. {X} is the hypothesis, so {X} → {Y}.'],
+    ['only-if','{X} only if {Y}.','XY','"Only if" marks the necessary condition: {X} can hold only when {Y} does. So {X} → {Y}.'],
+    ['whenever','{Y} whenever {X}.','XY','"Whenever {X}" means every time {X} holds, {Y} does too: {X} → {Y}.'],
+    ['provided','{Y}, provided that {X}.','XY','"Provided that" introduces the hypothesis: {X} → {Y}.'],
+    ['sufficient','{X} is sufficient for {Y}.','XY','Sufficient means having {X} is enough to get {Y}: {X} → {Y}.'],
+    ['necessary','{Y} is necessary for {X}.','XY','Necessary means {X} cannot happen without {Y}. So whenever {X} holds, {Y} holds: {X} → {Y}.'],
+    ['contrapositive','If not {Y}, then not {X}.','XY','This is the contrapositive of {X} → {Y}, and a statement is equivalent to its contrapositive.'],
+    ['without','You cannot have {X} without {Y}.','XY','Having {X} forces {Y}: {X} → {Y}. This is the "necessary" idea in plain words.'],
+    ['iff','{X} if and only if {Y}.','IFF','"If" gives one direction and "only if" gives the other. Both together is ↔.'],
+    ['nec-suf','{X} is necessary and sufficient for {Y}.','IFF','Necessary gives {Y} → {X}, sufficient gives {X} → {Y}. Both directions is ↔.'],
+    ['exactly','{X} exactly when {Y}.','IFF','"Exactly when" and "precisely when" mean the two always hold together: ↔.'],
+    ['equivalent','{X} is equivalent to {Y}.','IFF','Equivalent means each implies the other: ↔.']
+  ];
+  TEMPLATES.forEach(function(t){
+    add('translate',t[0],function(){
+      var flip=Math.random()<.5, X=flip?'Q':'P', Y=flip?'P':'Q';
+      function fill(s){ return s.replace(/\{X\}/g,X).replace(/\{Y\}/g,Y); }
+      return {ask:'What does this sentence claim?',stem:fill(t[1]),options:T_OPTS.slice(),
+              correct:t[2]==='IFF'?2:(flip?1:0),why:fill(t[3]),shuffle:false};
+    });
+  });
+  fixed('translate','converse','Vocabulary','The converse of P → Q is',
+    ['Q → P','¬Q → ¬P','¬P → ¬Q','P ∧ ¬Q'],0,'The converse swaps hypothesis and conclusion. It is a different statement and is not implied by the original.');
+  fixed('translate','contrapos','Vocabulary','The contrapositive of P → Q is',
+    ['¬Q → ¬P','Q → P','¬P → ¬Q','P ∧ ¬Q'],0,'Swap and negate both. It is logically equivalent to the original.');
+  fixed('translate','equiv','Which one is logically equivalent to P → Q?','P → Q',
+    ['¬Q → ¬P','Q → P','¬P → ¬Q','P ∧ ¬Q'],0,'Only the contrapositive. Q → P is the converse, ¬P → ¬Q is the inverse (equivalent to the converse), and P ∧ ¬Q is the negation.');
+  fixed('translate','def-if','What does the "if" mean here?','Definition: a function f is even if f(−x) = f(x) for all x.',
+    ['If and only if','One direction only: the condition implies evenness','Only if'],0,'In a definition, "if" always means "if and only if". The definition is naming exactly the functions with that property.');
+  fixed('translate','unless','What does this sentence claim?','P unless Q.',
+    ['¬Q → P','Q → P','P → Q','P ∧ ¬Q'],0,'"P unless Q" says that if Q does not happen, P does. It is the same as P ∨ Q.');
+  fixed('translate','vacuous','What is its truth value?','"Every element of S has property P," where S turns out to be empty.',
+    ['True','False','Undefined'],0,'Vacuously true. To make it false you would need an element of S that fails P, and there are no elements at all.',true);
+
+  /* ---------- Quantifier order: true or false ---------- */
+  function tf(id,stem,truth,why){ fixed('quant',id,'True or false?',stem,['True','False'],truth?0:1,why,true); }
+  tf('gt-ae','For every real x there is a real y with y > x.',true,'You move second, so you can answer y = x + 1.');
+  tf('gt-ea','There is a real y such that for every real x, y > x.',false,'You must commit to y first, and then x = y beats it. There is no largest real.');
+  tf('inv-ae','For every real x there is a real y with x + y = 0.',true,'You see x, then pick y = −x.');
+  tf('inv-ea','There is a real y such that for every real x, x + y = 0.',false,'One fixed y cannot cancel every x. Take x = 1 − y.');
+  tf('id-ea','There is a real y such that for every real x, x + y = x.',true,'y = 0 works for all x at once. Here a single witness really does serve everyone.');
+  tf('recip','For every real x there is a real y with xy = 1.',false,'x = 0 has no reciprocal. One bad x sinks a "for every".');
+  tf('recip-nz','For every nonzero real x there is a real y with xy = 1.',true,'y = 1/x, which exists because x ≠ 0.');
+  tf('zero','There is a real x such that for every real y, xy = 0.',true,'x = 0 works against every y.');
+  tf('sqrt','For every real x there is a real y with y² = x.',false,'Negative x has no real square root.');
+  tf('sqrt-nn','For every real x ≥ 0 there is a real y with y² = x.',true,'This is the existence of square roots for nonnegative reals.');
+  tf('sq-lower','There is a real x such that for every real y, y² ≥ x.',true,'x = 0 works, since squares are nonnegative.');
+  tf('sq-mono','For all reals x and y, if x < y then x² < y².',false,'Take x = −2, y = 1. Then x < y but x² = 4 > 1.');
+  tf('ed-ae','For every ε > 0 there is a δ > 0 with δ < ε.',true,'Given ε, take δ = ε/2. δ is allowed to depend on ε.');
+  tf('ed-ea','There is a δ > 0 such that for every ε > 0, δ < ε.',false,'Once δ is fixed, the choice ε = δ breaks it. No positive number is below all positive numbers.');
+  tf('least-n','There is a natural number n such that for every natural number m, n ≤ m.',true,'The naturals have a least element.');
+  tf('least-z','There is an integer n such that for every integer m, n ≤ m.',false,'Whatever n you commit to, m = n − 1 is smaller.');
+  tf('arch-ae','For every ε > 0 there is a natural number N with 1/N < ε.',true,'Given ε, pick N > 1/ε. N depends on ε.');
+  tf('arch-ea','There is a natural number N such that for every ε > 0, 1/N < ε.',false,'Fix N, then ε = 1/N fails. The same N cannot serve every ε.');
+  tf('below-n','For every natural number x there is a natural number y with y < x.',false,'It fails at the smallest natural number.');
+  tf('below-r','For every real x there is a real y with y < x.',true,'y = x − 1.');
+  tf('imp-t','For every real x, if x > 2 then x² > 4.',true,'The x below 2 never test the promise, and every x above 2 keeps it.');
+  tf('imp-f','For every real x, if x² > 4 then x > 2.',false,'x = −3 has x² = 9 > 4 but is not greater than 2. This is the converse of a true statement, and it is false.');
+  tf('vac-t','Every real number x with x² < 0 satisfies x = 17.',true,'Vacuously true: no real x has x² < 0, so there is nothing that could be a counterexample.');
+  tf('vac-f','There is a real number x with x² < 0 and x = 17.',false,'An existence claim needs an actual witness, and there is none. "For every" can be vacuous; "there is" cannot.');
+  tf('between-f','For all reals x and y there is a real z with x < z < y.',false,'Take x = 1, y = 0. Nothing requires x < y, so the adversary picks them in the wrong order.');
+  tf('between-t','For all reals x < y there is a real z with x < z < y.',true,'z = (x + y)/2.');
+
+  /* ---------- Negate ---------- */
+  function neg(id,stem,options,why){ fixed('negate',id,'Which is the negation?',stem,options,0,why); }
+  neg('all','For every x, P(x).',
+    ['There is an x for which P(x) fails.','For every x, P(x) fails.','There is an x for which P(x) holds.'],
+    'To deny "all", one counterexample is enough. "For every x, P(x) fails" is far stronger than needed.');
+  neg('some','There is an x with P(x).',
+    ['For every x, P(x) fails.','There is an x for which P(x) fails.','For every x, P(x) holds.'],
+    'To deny existence you must rule out every candidate.');
+  neg('ae','For every x there is a y with P(x, y).',
+    ['There is an x such that for every y, P(x, y) fails.','For every x there is a y for which P(x, y) fails.','There is a y such that for every x, P(x, y) fails.','For every x and every y, P(x, y) fails.'],
+    'Flip each quantifier and keep the order: ∀x ∃y becomes ∃x ∀y, then negate the inside.');
+  neg('ea','There is a y such that for every x, P(x, y).',
+    ['For every y there is an x for which P(x, y) fails.','There is a y such that for every x, P(x, y) fails.','For every x there is a y for which P(x, y) fails.','There is a y and an x for which P(x, y) fails.'],
+    '∃y ∀x becomes ∀y ∃x: every candidate y has some x that defeats it.');
+  neg('imp','If P, then Q.',
+    ['P and not Q.','If P, then not Q.','If not P, then not Q.','Not P and Q.'],
+    'An implication is false in exactly one case: hypothesis true, conclusion false. The negation of an "if" is an "and".');
+  neg('and','P and Q.',
+    ['Not P, or not Q.','Not P, and not Q.','P or Q.'],
+    'De Morgan: an "and" fails as soon as either part fails.');
+  neg('or','P or Q.',
+    ['Not P, and not Q.','Not P, or not Q.','P and Q.'],
+    'De Morgan: an "or" fails only when both parts fail.');
+  neg('all-imp','For every x, if P(x) then Q(x).',
+    ['There is an x with P(x) and not Q(x).','For every x, P(x) and not Q(x).','There is an x with neither P(x) nor Q(x).','There is an x such that if P(x) then not Q(x).'],
+    'A counterexample is an x that satisfies the hypothesis and breaks the conclusion. This is what "find a counterexample" means.');
+  neg('limit','For every ε > 0 there is a δ > 0 such that for all x, if 0 < |x − a| < δ then |f(x) − L| < ε.',
+    ['There is an ε > 0 such that for every δ > 0 there is an x with 0 < |x − a| < δ and |f(x) − L| ≥ ε.',
+     'For every ε > 0 there is a δ > 0 such that for all x, if 0 < |x − a| < δ then |f(x) − L| ≥ ε.',
+     'There is an ε > 0 and a δ > 0 such that for all x, 0 < |x − a| < δ and |f(x) − L| ≥ ε.',
+     'There is an ε > 0 such that for every δ > 0 and every x, if 0 < |x − a| < δ then |f(x) − L| ≥ ε.'],
+    '∀ε ∃δ ∀x becomes ∃ε ∀δ ∃x. The inner "if A then B" becomes "A and not B", and "< ε" becomes "≥ ε".');
+  neg('seq','For every ε > 0 there is an N such that for all n > N, |aₙ − L| < ε.',
+    ['There is an ε > 0 such that for every N there is an n > N with |aₙ − L| ≥ ε.',
+     'For every ε > 0 there is an N such that for all n > N, |aₙ − L| ≥ ε.',
+     'There is an ε > 0 and an N such that for all n > N, |aₙ − L| ≥ ε.',
+     'There is an ε > 0 such that for every N and every n > N, |aₙ − L| ≥ ε.'],
+    'Not converging to L means some ε keeps getting violated arbitrarily far out. It does not have to be violated by every late term.');
+  neg('bounded','There is an M such that for every x, f(x) ≤ M.',
+    ['For every M there is an x with f(x) > M.','There is an M such that for every x, f(x) > M.','For every M and every x, f(x) > M.','There is an x such that for every M, f(x) > M.'],
+    'Unbounded above: whatever bound M you propose, some x beats it. The x is allowed to depend on M.');
+  neg('iff','P if and only if Q.',
+    ['Exactly one of P and Q holds.','Not P if and only if not Q.','P and not Q.','Neither P nor Q.'],
+    '↔ says the truth values match, so its negation says they differ. "Not P iff not Q" is the same statement as the original. "P and not Q" is only one of the two ways to differ.');
+  neg('lt','x < y',
+    ['x ≥ y','x > y','x ≤ y'],
+    'Not less than means greater than or equal. Forgetting the "or equal" case is the most common slip in ε-δ negations.');
+  neg('subset','Every element of A is an element of B.',
+    ['Some element of A is not in B.','No element of A is in B.','Some element of B is not in A.','Every element of A is outside B.'],
+    'A ⊆ B fails as soon as one element of A lies outside B.');
+  neg('unique','There is exactly one x with P(x).',
+    ['Either no x satisfies P, or at least two do.','No x satisfies P.','At least two x satisfy P.','Every x satisfies P.'],
+    '"Exactly one" is existence and uniqueness together, so it can fail in two ways.');
+
+  /* ---------- Proof moves ---------- */
+  function mv(id,ask,stem,options,why){ fixed('moves',id,ask,stem,options,0,why); }
+  mv('all','How does the proof start?','Claim: for every real x, P(x).',
+    ['Let x be an arbitrary real number.','Take x = 1 and check P(1).','Suppose P(x) fails for every x.','Choose a convenient x.'],
+    'You do not get to choose x. It is handed to you, and you may assume nothing beyond "x is real".');
+  mv('exists','What does the proof have to do?','Claim: there is a real x with P(x).',
+    ['Name a specific x and verify P(x).','Let x be arbitrary and show P(x).','Assume P(x) and derive a consequence.','Show P(x) for most x.'],
+    'Existence is proved by exhibiting a witness. Checking it is the whole proof.');
+  mv('imp','How does a direct proof start?','Claim: if P, then Q.',
+    ['Suppose P.','Suppose Q.','Suppose not P.','Suppose P and Q.'],
+    'Assume the hypothesis and work toward the conclusion. Assuming Q would be proving the converse.');
+  mv('contrapos','How does a proof by contrapositive start?','Claim: if P, then Q.',
+    ['Suppose not Q.','Suppose not P.','Suppose Q.','Suppose P and not Q.'],
+    'You prove ¬Q → ¬P instead, so you start from ¬Q and aim for ¬P.');
+  mv('contra','What do you assume in a proof by contradiction?','Claim: if P, then Q.',
+    ['P and not Q.','Not P and not Q.','Not P.','Q and not P.'],
+    'You assume the negation of the whole claim, and the negation of P → Q is P ∧ ¬Q. Then you hunt for an absurdity.');
+  mv('iff','What is the structure of the proof?','Claim: P if and only if Q.',
+    ['Prove P → Q, then prove Q → P.','Prove P → Q; the other direction follows.','Prove P and prove Q.','Prove the contrapositive of P → Q.'],
+    'Two separate proofs, usually marked (⇒) and (⇐). Neither direction gives you the other.');
+  mv('unique','How do you prove the uniqueness part?','Claim: there is a unique x with P(x).',
+    ['Suppose x and y both satisfy P, and show x = y.','Exhibit one x that satisfies P.','Show P(x) fails for every other x you can think of.','Suppose no x satisfies P and derive a contradiction.'],
+    'Uniqueness: any two solutions must coincide. Existence is a separate step.');
+  mv('disprove-all','How do you disprove it?','Claim: for every x, P(x).',
+    ['Find one x for which P(x) fails.','Show P(x) fails for every x.','Find one x for which P(x) holds.','Show the converse is false.'],
+    'The negation is an existence statement, so one counterexample does it.');
+  mv('disprove-ex','How do you disprove it?','Claim: there is an x with P(x).',
+    ['Show P(x) fails for every x.','Find one x for which P(x) fails.','Find two x for which P(x) holds.','Show P(x) is unlikely.'],
+    'The negation is a "for every" statement, so a single failing example proves nothing.');
+  mv('eps','How does the proof start?','Claim: for every ε > 0 there is a δ > 0 such that ...',
+    ['Let ε > 0 be given.','Let δ = 1.','Choose ε = 1.','Let δ > 0 be given.'],
+    'ε is the adversary\'s move, so it arrives arbitrary. Your δ comes afterwards and may depend on ε.');
+  mv('subset','How does the proof start?','Claim: A ⊆ B.',
+    ['Let x ∈ A. Show x ∈ B.','Let x ∈ B. Show x ∈ A.','Find an x in both A and B.','Show A and B have the same number of elements.'],
+    'A ⊆ B unpacks to "for every x, if x ∈ A then x ∈ B", so: arbitrary x, assume x ∈ A.');
+  mv('seteq','What is the structure of the proof?','Claim: A = B, for sets A and B.',
+    ['Show A ⊆ B and B ⊆ A.','Show A ⊆ B.','Find an element in both.','Show neither set is empty.'],
+    'Set equality is an "if and only if" on membership, so it takes both inclusions.');
+  mv('suffices','What is the author asserting?','"It suffices to show R."',
+    ['R implies the goal.','The goal implies R.','R is equivalent to the goal.','R is obviously true.'],
+    'Sufficient for the goal means R → goal. The author is reducing the problem to proving R.');
+  mv('wlog','What justifies this phrase?','"Without loss of generality, assume a ≤ b."',
+    ['The other case is identical after swapping the names a and b.','The case a > b is impossible.','The claim is only being proved when a ≤ b.','a ≤ b was given as a hypothesis.'],
+    'WLOG is legitimate only when the situation is symmetric, so one case covers both.');
+  mv('induction','What are the two things to prove?','Claim: P(n) holds for every natural number n, by induction.',
+    ['P(1), and P(k) → P(k + 1) for every k.','P(1) and P(2).','P(k) and P(k + 1) for every k.','P(k + 1) → P(k) for every k.'],
+    'Base case plus inductive step. In the step you assume P(k) for an arbitrary k; you do not assume P for all n.');
+  mv('fix','What does "fix" signal?','"Fix x ∈ ℝ. For each n, define aₙ = xⁿ/n."',
+    ['x is chosen once and stays the same while n varies.','x is a specific known number such as 1.','x will be solved for later.','x depends on n.'],
+    '"Fix" sets the order of quantifiers: x first and frozen, then everything else may vary and may depend on x.');
+  /* ---------- state ---------- */
+  var S={len:'deck',on:{translate:1,quant:1,negate:1,moves:1},best:null};
+  try{
+    var sv=JSON.parse(localStorage.getItem('lingoDrill')||'null');
+    if(sv&&typeof sv==='object'){
+      if(['deck',180,0].indexOf(sv.len)>=0) S.len=sv.len;
+      if(sv.on) CAT_ORDER.forEach(function(k){ if(k in sv.on) S.on[k]=sv.on[k]?1:0; });
+      if(!CAT_ORDER.some(function(k){return S.on[k];})) S.on.translate=1;
+      if(sv.best&&typeof sv.best.miss==='number') S.best=sv.best;
+    }
+  }catch(e){}
+  function save(){ try{ localStorage.setItem('lingoDrill',JSON.stringify(S)); }catch(e){} }
+
+  var $=function(id){return document.getElementById(id);};
+  var stage=$('stage'), flash=$('flash');
+  var run=null, timer=null, DECK=20;
+
+  function screen(name){
+    ['start','play','end'].forEach(function(s){ $(s).hidden=(s!==name); });
+    window.scrollTo(0,0);
+  }
+
+  function shuffleArr(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)), t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function instance(entry){
+    var q=entry.make(); q.id=entry.id; q.cat=entry.cat;
+    if(q.shuffle){
+      var idx=shuffleArr(q.options.map(function(_,i){return i;}));
+      var orig=q.options; q.options=idx.map(function(i){return orig[i];});
+      q.correct=idx.indexOf(q.correct);
+    }
+    return q;
+  }
+  function pools(){
+    var p={}; CAT_ORDER.forEach(function(c){ if(S.on[c]) p[c]=shuffleArr(BANK.filter(function(e){return e.cat===c;})); });
+    return p;
+  }
+  function draw(n){
+    var out=[], cats=CAT_ORDER.filter(function(c){return S.on[c];}), i=0;
+    while(out.length<n){
+      var c=cats[i%cats.length]; i++;
+      if(!run.pools[c].length) run.pools[c]=shuffleArr(BANK.filter(function(e){return e.cat===c;}));
+      out.push(instance(run.pools[c].pop()));
+    }
+    return shuffleArr(out);
+  }
+
+  function fmt(ms){ var s=Math.floor(ms/1000); return Math.floor(s/60)+':'+(s%60<10?'0':'')+(s%60); }
+  function elapsed(){ return run.acc+(run.paused?0:performance.now()-run.seg); }
+  function meters(){
+    $('mScore').textContent=(run?run.right:0)+' / '+(run?run.total:0);
+    if(S.len==='deck'){ $('mThirdLab').textContent='left in deck'; $('mThird').textContent=run&&run.active?run.queue.length+(run.q?1:0):DECK; }
+    else{ $('mThirdLab').textContent='streak'; $('mThird').textContent=run?run.streak:0; }
+    $('mTimeLab').textContent=S.len===180?'time left':'time';
+    if(!run||!run.active) $('mTime').textContent=S.len===180?'3:00':(run?fmt(run.acc):'0:00');
+  }
+  function tick(){
+    if(!run||!run.active) return;
+    var e=elapsed();
+    if(S.len===180){
+      var left=Math.max(0,180000-e);
+      $('mTime').textContent=fmt(left+999);
+      $('clockFill').style.transform='scaleX('+(left/180000)+')';
+      if(left<=0) finish();
+    }else $('mTime').textContent=fmt(e);
+  }
+
+  function startLabel(){ return S.len==='deck'?'Start 20 questions':S.len===180?'Start 3-minute sprint':'Start endless practice'; }
+  function lockSettings(on){ Array.prototype.forEach.call(document.querySelectorAll('.chip'),function(b){ b.disabled=on; }); }
+
+  function start(){
+    run={active:true,acc:0,seg:performance.now(),paused:false,right:0,total:0,streak:0,bestStreak:0,
+         stats:{},missed:[],missedIds:{},queue:[],q:null,pools:pools(),firstMiss:0};
+    run.queue=draw(S.len==='deck'?DECK:8);
+    $('results').hidden=true; flash.textContent='';
+    $('clock').hidden=(S.len!==180); $('clockFill').style.transform='scaleX(1)';
+    lockSettings(true);
+    screen('play');
+    timer=setInterval(tick,200);
+    next();
+  }
+  function next(){
+    if(S.len!=='deck' && run.queue.length<4) run.queue=run.queue.concat(draw(6));
+    if(!run.queue.length){ finish(); return; }
+    run.q=run.queue.shift(); run.q.t0=performance.now();
+    run.paused=false; run.seg=performance.now();
+    show(run.q); meters(); tick();
+  }
+  function show(q){
+    var h='<p class="prompt">'+esc(q.ask)+(q.retry?' (this one is back because you missed it)':'')+'</p>'
+         +'<p class="stem">'+esc(q.stem)+'</p><div class="options" id="opts">';
+    q.options.forEach(function(o,i){
+      h+='<button class="option" type="button" data-i="'+i+'"><span class="k">'+(i+1)+'</span><span>'+esc(o)+'</span><span class="tag"></span></button>';
+    });
+    h+='</div><div id="after"></div>';
+    stage.innerHTML=h;
+    Array.prototype.forEach.call(stage.querySelectorAll('.option'),function(b){
+      b.addEventListener('click',function(){ answer(+b.getAttribute('data-i')); });
+    });
+  }
+  function answer(i){
+    if(!run||!run.active||run.paused) return;
+    var q=run.q; if(i<0||i>=q.options.length) return;
+    var ms=performance.now()-q.t0, ok=(i===q.correct);
+    var s=run.stats[q.cat]||(run.stats[q.cat]={n:0,right:0,ms:0});
+    s.n++; s.ms+=ms; run.total++;
+    if(ok){
+      s.right++; run.right++; run.streak++; run.bestStreak=Math.max(run.bestStreak,run.streak);
+      flash.textContent='Correct'; meters(); next(); return;
+    }
+    run.streak=0; flash.textContent='';
+    if(!q.retry) run.firstMiss++;
+    if(!run.missedIds[q.id+q.stem]){ run.missedIds[q.id+q.stem]=1; run.missed.push(q); }
+    run.acc=elapsed(); run.paused=true;
+    var again={ask:q.ask,stem:q.stem,options:q.options,correct:q.correct,why:q.why,id:q.id,cat:q.cat,retry:true};
+    run.queue.splice(Math.min(4,run.queue.length),0,again);
+    Array.prototype.forEach.call(stage.querySelectorAll('.option'),function(b,j){
+      b.disabled=true;
+      if(j===q.correct){ b.classList.add('good'); b.querySelector('.tag').textContent='correct answer'; }
+      else if(j===i){ b.classList.add('bad'); b.querySelector('.tag').textContent='your answer'; }
+      else b.classList.add('dim');
+    });
+    $('after').innerHTML='<div class="feedback bad"><p>'+esc(q.why)+'</p><button class="btn" id="contBtn" type="button">Continue (Space)</button></div>';
+    $('contBtn').addEventListener('click',next);
+    $('contBtn').focus();
+    meters();
+  }
+  function finish(){
+    if(!run||!run.active) return;
+    if(!run.paused) run.acc=elapsed();
+    run.active=false; run.paused=true; run.q=null; clearInterval(timer); lockSettings(false); flash.textContent='';
+    var acc=run.total?Math.round(100*run.right/run.total):0, extra='';
+    if(S.len==='deck' && run.total>=DECK && !run.queue.length){
+      var b=S.best, better=!b||run.firstMiss<b.miss||(run.firstMiss===b.miss&&run.acc<b.time);
+      if(better){ S.best={miss:run.firstMiss,time:Math.round(run.acc)}; save(); extra=b?' New best.':' First result on the board.'; }
+    }
+    $('tally').textContent=run.right+' right out of '+run.total;
+    $('rAcc').textContent=acc+'%';
+    $('rTime').textContent=fmt(run.acc);
+    $('rMiss').textContent=run.missed.length;
+    $('rMissLab').textContent='different question'+(run.missed.length===1?'':'s')+' missed';
+    $('rExtra').textContent=extra.trim(); $('rExtra').hidden=!extra;
+    results(); meters(); bestLine();
+    screen('end');
+  }
+  function results(){
+    var rows=CAT_ORDER.filter(function(k){return run.stats[k];}).map(function(k){
+      var s=run.stats[k]; return {k:k,n:s.n,right:s.right,acc:s.right/s.n,avg:s.ms/s.n};
+    });
+    if(!rows.length){ $('results').hidden=true; return; }
+    rows.sort(function(x,y){return x.acc-y.acc||y.avg-x.avg;});
+    var slow=rows.slice().sort(function(x,y){return y.avg-x.avg;})[0];
+    $('resBody').innerHTML=rows.map(function(r){
+      return '<tr><td>'+CATS[r.k]+'</td><td>'+r.right+' / '+r.n+'</td><td class="'+(r.acc<1?'flag':'')+'">'+Math.round(r.acc*100)+'%</td>'
+        +'<td class="'+(r===slow&&rows.length>1?'flag':'')+'">'+(r.avg/1000).toFixed(1)+' s</td></tr>';
+    }).join('');
+    var msg=rows[0].acc<1?'Weakest skill: '+CATS[rows[0].k]+'. ':'No misses. ';
+    if(rows.length>1) msg+='Slowest: '+CATS[slow.k]+' at '+(slow.avg/1000).toFixed(1)+' s per answer.';
+    $('takeaway').textContent=msg;
+    $('misses').innerHTML=run.missed.map(function(q){
+      return '<li><div>'+esc(q.stem)+'</div><div class="ok">'+esc(q.options[q.correct])+'</div><p class="why">'+esc(q.why)+'</p></li>';
+    }).join('');
+    $('results').hidden=false;
+  }
+  function bestLine(){
+    $('bestLine').textContent=S.best?'Best 20-question run on this device: '+S.best.miss+' missed on first try, in '+fmt(S.best.time)+'.':'';
+  }
+
+  /* ---------- settings ---------- */
+  function chips(rowId,items,isOn,onClick){
+    var row=$(rowId); row.innerHTML='';
+    items.forEach(function(it){
+      var b=document.createElement('button');
+      b.type='button'; b.className='chip'; b.textContent=it.label;
+      b.setAttribute('aria-pressed',isOn(it.v)?'true':'false');
+      b.addEventListener('click',function(){ onClick(it.v); save(); build(); var sb=$('startBtn'); if(sb) sb.textContent=startLabel(); meters(); });
+      row.appendChild(b);
+    });
+  }
+  function build(){
+    chips('lenRow',[{label:'20 questions',v:'deck'},{label:'3 minutes',v:180},{label:'Endless',v:0}],
+      function(v){return S.len===v;},function(v){S.len=v;});
+    chips('catRow',CAT_ORDER.map(function(k){return {label:CATS[k],v:k};}),
+      function(v){return !!S.on[v];},
+      function(v){ var n=CAT_ORDER.filter(function(k){return S.on[k];}).length; if(S.on[v]&&n===1) return; S.on[v]=S.on[v]?0:1; });
+  }
+
+  document.addEventListener('keydown',function(e){
+    if(e.ctrlKey||e.metaKey||e.altKey) return;
+    var k=e.key;
+    if(run&&run.active){
+      if(run.paused){ if(k===' '||k==='Enter'){ e.preventDefault(); next(); } else if(k==='Escape') finish(); return; }
+      if(k>='1'&&k<='4'){ e.preventDefault(); answer(+k-1); }
+      else if((k==='t'||k==='T')&&run.q.options[0]==='True'){ answer(0); }
+      else if((k==='f'||k==='F')&&run.q.options[1]==='False'){ answer(1); }
+      else if(k==='Escape'){ finish(); }
+      else if(k===' '){ e.preventDefault(); }
+    }else if(k===' '){
+      var cls=(document.activeElement&&document.activeElement.className)||'';
+      if(String(cls).indexOf('chip')>=0) return;
+      e.preventDefault(); start();
+    }
+  });
+
+  $('startBtn').addEventListener('click',start);
+  $('againBtn').addEventListener('click',start);
+  $('stopBtn').addEventListener('click',finish);
+  $('settingsBtn').addEventListener('click',function(){ screen('start'); });
+
+  build(); $('startBtn').textContent=startLabel(); meters(); bestLine();
+})();
+</script>
+</body>
+</html>
