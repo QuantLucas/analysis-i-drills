@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quantifier rules</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="drills.css">
+<style>
+.stage>*{width:100%}
+.given{font-family:var(--math);font-size:1.15rem;color:var(--muted);margin:0 0 .5rem;overflow-x:auto}
+.given.words{font-family:var(--ui);font-size:1rem}
+.stage .formula{margin:0 0 1rem;overflow-x:auto}
+.formula.mid{font-size:clamp(1.3rem,4.6vw,1.9rem)}
+#warn{color:var(--bad)}
+/* inference: premises above a bar, conclusion below */
+.inf{display:inline-flex;flex-direction:column;align-items:center;min-width:min(12rem,100%)}
+.inf .ln{padding:.05rem .5rem;white-space:nowrap}
+.inf .bar{align-self:stretch;height:2px;background:var(--ink);margin:.4rem 0}
+.note{font-family:var(--ui);font-size:.6em;font-weight:500;color:var(--muted);font-style:normal;margin-left:.45em;white-space:nowrap}
+/* derivation with numbered lines */
+.deriv{display:inline-block;text-align:left;font-size:clamp(1.05rem,3.8vw,1.35rem);border-collapse:collapse}
+.deriv td{padding:.15rem .45rem;vertical-align:baseline}
+.deriv .n{font-family:var(--ui);font-size:.75em;font-weight:600;color:var(--faint);text-align:right}
+.deriv .j{font-family:var(--ui);font-size:.75em;color:var(--muted)}
+.deriv .qq td{border-top:1.5px solid var(--line);color:var(--navy);font-weight:600}
+.just{display:inline-block;font-family:var(--ui);font-size:.8rem;color:var(--muted);margin-left:.55em}
+</style>
+</head>
+<body>
+<main class="page">
+
+<section id="start">
+  <header class="masthead">
+    <p class="eyebrow"><a href="index.html">Analysis I</a> · Chapter 2 · Rules of inference for quantifiers</p>
+    <h1>Quantifier rules</h1>
+    <p class="lede">Universal and existential instantiation and generalization, which steps are valid, the order in which a proof makes its choices, and what comes next in a derivation. A miss pauses the clock and explains itself. Keys 1 to 4 pick an answer.</p>
+  </header>
+
+  <div class="settings">
+    <div class="field">
+      <span class="field-label">What to practise</span>
+      <div class="chips">
+        <label class="chip"><input type="checkbox" name="topic" value="name" checked>Name the rule</label>
+        <label class="chip"><input type="checkbox" name="topic" value="valid" checked>Valid step?</label>
+        <label class="chip"><input type="checkbox" name="topic" value="order" checked>Order of choices</label>
+        <label class="chip"><input type="checkbox" name="topic" value="next" checked>Next line</label>
+      </div>
+    </div>
+    <div class="field">
+      <span class="field-label">Round length</span>
+      <div class="chips">
+        <label class="chip"><input type="radio" name="len" value="60" checked>60 seconds</label>
+        <label class="chip"><input type="radio" name="len" value="120">2 minutes</label>
+        <label class="chip"><input type="radio" name="len" value="0">Untimed</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions"><button class="btn btn-lg" id="startBtn">Start round</button><span class="best" id="best"></span></div>
+  <p class="hint" id="warn" hidden>Pick at least one thing to practise.</p>
+  <p class="hint"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> pick an answer, <kbd>T</kbd> <kbd>F</kbd> on true-or-false questions, <kbd>Space</kbd> continues after a miss, <kbd>Esc</kbd> ends the round.</p>
+</section>
+
+<section id="play" hidden>
+  <div class="panel">
+    <div class="hud">
+      <div class="stat"><b id="score">0</b>score</div>
+      <div class="stat"><b id="streak">0</b>streak</div>
+      <div class="stat"><b id="time">1:00</b>time</div>
+      <button class="btn-link" id="endBtn">End round</button>
+    </div>
+    <div class="clock" id="clock"><i id="fill"></i></div>
+
+    <div class="stage">
+      <p class="prompt" id="prompt"></p>
+      <p class="given" id="given"></p>
+      <div class="formula" id="formula"></div>
+      <div class="options" id="options"></div>
+      <div class="feedback bad" id="feedback" aria-live="polite" hidden>
+        <h3 id="fbHead"></h3>
+        <p id="explain"></p>
+        <button class="btn" id="nextBtn">Next question (Space)</button>
+      </div>
+      <p class="flash" id="flash" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
+
+<section id="end" hidden class="results">
+  <p class="tally" id="tally"></p>
+  <div class="bignums">
+    <div><b id="eAcc"></b><span>accuracy</span></div>
+    <div><b id="eStreak"></b><span>best streak</span></div>
+    <div><b id="eBest"></b><span>best for this length</span></div>
+  </div>
+  <h2 id="reviewHead">Review these</h2>
+  <ul class="missed" id="review"></ul>
+  <div class="actions">
+    <button class="btn" id="againBtn">Play again</button>
+    <button class="btn btn-outline" id="settingsBtn">Change settings</button>
+  </div>
+</section>
+
+<footer class="site-footer"><span></span><a href="index.html">All Analysis I drills</a></footer>
+</main>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- helpers ---------- */
+function rnd(n){return Math.floor(Math.random()*n)}
+function pick(a){return a[rnd(a.length)]}
+function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=rnd(i+1),t=a[i];a[i]=a[j];a[j]=t}return a}
+var I=function(s){return '<i>'+s+'</i>'};
+var x=I('x'),y=I('y'),a=I('a'),b=I('b'),c=I('c'),d=I('d'),n=I('n');
+function ap(f,args){return I(f)+'('+args.join(', ')+')'}
+function P(t){return ap('P',[t])} function Q(t){return ap('Q',[t])} function R(t){return ap('R',[t])}
+function L(s,t){return ap('L',[s,t])}
+function note(s){return '<span class="note">'+s+'</span>'}
+function just(s){return '<span class="just">'+s+'</span>'}
+function inf(prems,concl){
+  return '<div class="inf">'+prems.map(function(p){return '<div class="ln prem">'+p+'</div>'}).join('')+
+    '<div class="bar"></div><div class="ln concl">'+concl+'</div></div>';
+}
+function strip(h){return h.replace(/<span class="(note|just)">.*?<\/span>/g,'').replace(/<[^>]+>/g,'').replace(/&gt;/g,'>').replace(/&lt;/g,'<').trim()}
+
+/* Options: [{h, ok}] with exactly one ok and all texts distinct. */
+function mc(correct,wrongs){
+  var seen={},opts=[{h:correct,ok:true}];seen[correct]=1;
+  wrongs.forEach(function(w){if(opts.length<4&&!seen[w]){seen[w]=1;opts.push({h:w,ok:false})}});
+  return shuffle(opts);
+}
+function tf(truth){return [{h:'True',ok:truth,word:true},{h:'False',ok:!truth,word:true}]}
+
+/* ---------- 1. name the rule (generated) ---------- */
+var RULES={
+  UI:{name:'Universal instantiation (UI)',
+    say:function(){return 'Universal instantiation (UI): from ∀'+x+' '+P(x)+' derive '+P(I('t'))+' for any term '+I('t')+'.'}},
+  UG:{name:'Universal generalization (UG)',
+    say:function(){return 'Universal generalization (UG): from '+P(c)+', where '+c+' is arbitrary (nothing is assumed about '+c+' except that it lies in the domain), derive ∀'+x+' '+P(x)+'.'}},
+  EG:{name:'Existential generalization (EG)',
+    say:function(){return 'Existential generalization (EG): from '+P(c)+' derive ∃'+x+' '+P(x)+'.'}},
+  EI:{name:'Existential instantiation (EI)',
+    say:function(){return 'Existential instantiation (EI): from ∃'+x+' '+P(x)+' derive '+P(c)+' for some '+c+'. Here '+c+' names an unknown witness: we know '+P(c)+' and nothing else, and we do not choose it.'}}
+};
+/* Predicates: body(t) gives the formula with t plugged in; dom is the domain shown after the quantifier
+   (empty for an abstract predicate); all=true means the universal statement is true, so it may appear
+   as a premise of UI or a conclusion of UG; nums are numbers for which body(num) is true. */
+function predicates(){
+  var out=[];
+  ['P','Q','R'].forEach(function(f){
+    out.push({vars:['x','y'],dom:'',body:function(t){return ap(f,[t])},all:true,nums:[3,5]});
+  });
+  [['a','b'],['b','a']].forEach(function(fx){
+    var k=I(fx[0]);
+    out.push({vars:['x','y'],dom:'',fixed:fx[0],body:function(t){return L(t,k)},all:true,nums:[3,5]});
+    out.push({vars:['x','y'],dom:'',fixed:fx[0],body:function(t){return L(k,t)},all:true,nums:[3,5]});
+  });
+  out.push({vars:['x'],dom:'ℝ',body:function(t){return t+'² ≥ 0'},all:true,nums:[3,5]});
+  out.push({vars:['x'],dom:'ℝ',body:function(t){return t+' + 0 = '+t},all:true,nums:[3,5]});
+  out.push({vars:['n'],dom:'ℤ',body:function(t){return '2 · '+t+' is even'},all:true,nums:[3,5]});
+  out.push({vars:['n'],dom:'ℤ',body:function(t){return t+' is odd'},all:false,nums:[3,5]});
+  out.push({vars:['n'],dom:'ℤ',body:function(t){return t+' is even'},all:false,nums:[4,6]});
+  out.push({vars:['x'],dom:'ℝ',body:function(t){return t+' &gt; 2'},all:false,nums:[3,5]});
+  out.push({vars:['x'],dom:'ℝ',body:function(t){return t+'² = 9'},all:false,nums:[3]});
+  return out;
+}
+var PREDS=predicates();
+function quant(q,v,pr){return q+I(v)+(pr.dom?' ∈ '+pr.dom+',':'')+' '+pr.body(I(v))}
+function qName(){
+  var rule=pick(['UI','UG','EG','EI']),pr;
+  do{pr=pick(PREDS)}while((rule==='UI'||rule==='UG')&&!pr.all);
+  var v=pick(pr.vars),term,prem,concl;
+  if(rule==='UI'||rule==='EG'){
+    var letters=['a','c'].filter(function(l){return l!==pr.fixed});
+    term=Math.random()<0.5?String(pick(pr.nums)):I(pick(letters));
+  }else term=c;
+  var inst=pr.body(term);
+  if(rule==='UI'){prem=quant('∀',v,pr);concl=inst}
+  if(rule==='UG'){prem=inst+note('('+c+' arbitrary)');concl=quant('∀',v,pr)}
+  if(rule==='EG'){prem=inst;concl=quant('∃',v,pr)}
+  if(rule==='EI'){prem=quant('∃',v,pr);concl=inst+note('(for some '+c+')')}
+  var why={
+    UI:'The premise is universal and the conclusion applies it to the term '+term+'.',
+    UG:'The premise is about an arbitrary '+c+' and the conclusion is universal. This is the step behind “Let '+c+' be arbitrary”.',
+    EG:'The premise is one instance, with '+term+', and the conclusion says that some element works.',
+    EI:'The premise is existential and the conclusion gives its witness a name. This is the step behind “let '+c+' be such that …”.'
+  }[rule];
+  var wrongs=shuffle(['UI','UG','EG','EI'].filter(function(r){return r!==rule})).map(function(r){return RULES[r].name});
+  return {id:'name:'+prem+concl,topic:'Name the rule',prompt:'Which rule takes the line above the bar to the line below?',given:'',
+    formula:inf([prem],concl),fclass:'mid',rule:rule,options:mc(RULES[rule].name,wrongs),
+    explain:RULES[rule].say()+' '+why,review:'From '+prem+' derive '+concl+': '+RULES[rule].name.charAt(0).toLowerCase()+RULES[rule].name.slice(1)+'.'};
+}
+
+/* ---------- 2. valid step? (bank, true or false) ---------- */
+var FXPQ='∀'+x+' ('+P(x)+' → '+Q(x)+')';
+var VALID=[
+  {ctx:'Apply a universal statement to the number 7.',p:['∀'+x+' ∈ ℝ, '+x+'² ≥ 0'],c:'7² ≥ 0',t:true,
+    why:'Universal instantiation applies ∀'+x+' '+P(x)+' to any element of the domain, and 7 is a real number.'},
+  {ctx:'Here 3 is a particular number.',p:['3 is prime'],c:'∃'+n+' ∈ ℕ, '+n+' is prime',t:true,
+    why:'Existential generalization: one instance, 3, is enough to conclude that some natural number is prime.'},
+  {ctx:'Here 3 is a specific integer, not an arbitrary one.',p:['3 is odd'],c:'∀'+n+' ∈ ℤ, '+n+' is odd',t:false,
+    why:'Universal generalization needs an element about which nothing is assumed. 3 is a specific integer, and indeed 2 is not odd.'},
+  {ctx:'Line 2 came from line 1 by existential instantiation, and the step applies universal generalization to '+c+'.',
+    p:['∃'+x+' '+P(x),P(c)+note('(by EI)')],c:'∀'+x+' '+P(x),t:false,
+    why:'The letter '+c+' names one unknown witness, not an arbitrary element, so universal generalization does not apply. Some integer is even, but not every integer is.'},
+  {ctx:'Both premises are instantiated by EI, using the same letter '+c+' for both.',p:['∃'+x+' '+P(x),'∃'+x+' '+Q(x)],c:P(c)+' ∧ '+Q(c),t:false,
+    why:'Each use of EI needs a new letter, because the witness for '+I('P')+' and the witness for '+I('Q')+' may be different elements. Some integer is even and some integer is odd, but no integer is both.'},
+  {ctx:'',p:[FXPQ,P(a)],c:Q(a),t:true,
+    why:'Universal instantiation with the term '+a+' gives '+P(a)+' → '+Q(a)+', and modus ponens with '+P(a)+' gives '+Q(a)+'.'},
+  {ctx:'',p:['∃'+y+' ∀'+x+' '+L(x,y)],c:'∀'+x+' ∃'+y+' '+L(x,y),t:true,
+    why:'If one '+y+' works for every '+x+', then for each '+x+' that same '+y+' works. Formally: EI gives ∀'+x+' '+L(x,c)+'; for an arbitrary '+d+', UI gives '+L(d,c)+', EG gives ∃'+y+' '+L(d,y)+', and UG finishes.'},
+  {ctx:'',p:['∀'+x+' ∃'+y+' '+L(x,y)],c:'∃'+y+' ∀'+x+' '+L(x,y),t:false,
+    why:'Over ℝ, let '+L(x,y)+' mean '+y+' &gt; '+x+'. Every '+x+' has a larger '+y+', but no single '+y+' is larger than every '+x+'. In ∀'+x+' ∃'+y+' the choice of '+y+' may depend on '+x+'.'},
+  {ctx:'The domain is nonempty.',p:['∀'+x+' '+P(x)],c:'∃'+x+' '+P(x),t:true,
+    why:'Take any element '+a+' of the domain. Universal instantiation gives '+P(a)+', and existential generalization gives ∃'+x+' '+P(x)+'. This is where the domain being nonempty is used.'},
+  {ctx:'Earlier we let '+c+' ∈ ℝ be arbitrary, then assumed '+c+' &gt; 0, and under that assumption derived the premise.',
+    p:[c+'² &gt; 0'],c:'∀'+x+' ∈ ℝ, '+x+'² &gt; 0',t:false,
+    why:'Once we assumed '+c+' &gt; 0, '+c+' is no longer arbitrary, so universal generalization does not apply; indeed 0² &gt; 0 is false. What does follow is ∀'+x+' ∈ ℝ, ('+x+' &gt; 0 → '+x+'² &gt; 0).'},
+  {ctx:'The step claims existential instantiation, naming the witness 3.',p:['∃'+x+' '+P(x)],c:P('3'),t:false,
+    why:'Existential instantiation gives a name '+c+' to an unknown witness: we know '+P(c)+' and nothing else, and we do not get to choose which element it is.'},
+  {ctx:'The letter '+c+' is new: it has not appeared before in the proof.',p:['∃'+x+' '+P(x)],c:P(c),t:true,
+    why:'This is existential instantiation. The new letter '+c+' names a witness about which we know only '+P(c)+'.'},
+  {ctx:'Here '+c+' was introduced by “Let '+c+' be arbitrary”, and nothing else was assumed about it.',p:[P(c)],c:'∀'+x+' '+P(x),t:true,
+    why:'This is universal generalization: an argument that uses nothing about '+c+' works equally well for every element of the domain.'},
+  {ctx:'',p:['∀'+x+' ('+P(x)+' ∧ '+Q(x)+')'],c:'∀'+x+' '+P(x),t:true,
+    why:'Let '+c+' be arbitrary. UI gives '+P(c)+' ∧ '+Q(c)+', simplification gives '+P(c)+', and UG gives ∀'+x+' '+P(x)+', since nothing was assumed about '+c+'.'},
+  {ctx:'',p:['∃'+x+' ('+P(x)+' ∧ '+Q(x)+')'],c:'∃'+x+' '+P(x)+' ∧ ∃'+x+' '+Q(x),t:true,
+    why:'EI gives '+P(c)+' ∧ '+Q(c)+' for some '+c+'. Simplification gives each half, EG turns each into an existential statement, and conjunction joins them.'},
+  {ctx:'',p:['∃'+x+' '+P(x)+' ∧ ∃'+x+' '+Q(x)],c:'∃'+x+' ('+P(x)+' ∧ '+Q(x)+')',t:false,
+    why:'The two witnesses may differ. Over ℤ, with '+P(x)+': '+x+' is even and '+Q(x)+': '+x+' is odd, the premise is true and the conclusion is false.'},
+  {ctx:'',p:['∀'+x+' '+P(x)+' ∨ ∀'+x+' '+Q(x)],c:'∀'+x+' ('+P(x)+' ∨ '+Q(x)+')',t:true,
+    why:'Let '+c+' be arbitrary. In either case of the disjunction, UI gives '+P(c)+' or '+Q(c)+', so '+P(c)+' ∨ '+Q(c)+' holds, and UG finishes.'},
+  {ctx:'',p:['∀'+x+' ('+P(x)+' ∨ '+Q(x)+')'],c:'∀'+x+' '+P(x)+' ∨ ∀'+x+' '+Q(x),t:false,
+    why:'Every integer is even or odd, but it is false that every integer is even, and false that every integer is odd.'},
+  {ctx:'',p:[FXPQ,'¬'+Q(a)],c:'¬'+P(a),t:true,
+    why:'Universal instantiation with '+a+' gives '+P(a)+' → '+Q(a)+', and modus tollens with ¬'+Q(a)+' gives ¬'+P(a)+'.'},
+  {ctx:'',p:[FXPQ,Q(a)],c:P(a),t:false,
+    why:'After universal instantiation this is affirming the consequent. Over ℝ, with '+P(x)+': '+x+' &gt; 2, '+Q(x)+': '+x+' &gt; 0 and '+a+' = 1, both premises are true and '+P('1')+' is false.'},
+  {ctx:'',p:['∃'+x+' '+P(x),FXPQ],c:'∃'+x+' '+Q(x),t:true,
+    why:'EI gives '+P(c)+' for a new letter '+c+'. UI with '+c+' gives '+P(c)+' → '+Q(c)+', modus ponens gives '+Q(c)+', and EG gives ∃'+x+' '+Q(x)+'.'},
+  {ctx:'',p:['∀'+x+' ∀'+y+' '+L(x,y)],c:L(a,a),t:true,
+    why:'UI with the term '+a+' gives ∀'+y+' '+L(a,y)+', and UI again with '+a+' gives '+L(a,a)+'. Nothing forbids using the same term twice.'}
+];
+function qValid(){
+  var r=pick(VALID);
+  var step='From '+r.p.join(' and ')+' conclude '+r.c;
+  return {id:'valid:'+r.p.join('|')+r.c,topic:'Valid step?',prompt:'Is this step valid?',given:r.ctx,givenWords:true,
+    formula:inf(r.p,r.c),fclass:'mid',options:tf(r.t),
+    explain:(r.t?'Valid. ':'Invalid. ')+r.why,review:step+': '+(r.t?'valid':'invalid')+'.'};
+}
+
+/* ---------- 3. order of choices (bank, multiple choice) ---------- */
+var eps=I('ε');
+var ORDER=[
+  {s:'∀'+x+' ∈ ℝ ∃'+y+' ∈ ℝ, '+y+' &gt; '+x,dis:false,
+    ok:'Let '+x+' ∈ ℝ be arbitrary. Take '+y+' = '+x+' + 1.',
+    no:['Take '+y+' = 1. Let '+x+' ∈ ℝ be arbitrary.','Let '+y+' ∈ ℝ be arbitrary. Take '+x+' = '+y+' + 1.','Take '+x+' = 0 and '+y+' = 1.'],
+    why:'The ∀ comes first, so fix an arbitrary '+x+'; then exhibit '+y+', which may depend on '+x+'. A fixed '+y+' = 1 fails for '+x+' = 2, and checking one pair proves nothing about every '+x+'.'},
+  {s:'∃'+y+' ∈ ℝ ∀'+x+' ∈ ℝ, '+x+'² ≥ '+y,dis:false,
+    ok:'Take '+y+' = 0. Let '+x+' ∈ ℝ be arbitrary.',
+    no:['Let '+x+' ∈ ℝ be arbitrary. Take '+y+' = '+x+'².','Let '+y+' ∈ ℝ be arbitrary. Take '+x+' = 0.','Take '+y+' = 0 and '+x+' = 1.'],
+    why:'The ∃ comes first, so exhibit one '+y+' before '+x+' is known; then show it works for an arbitrary '+x+'. Taking '+y+' = '+x+'² lets '+y+' depend on '+x+', which proves the weaker ∀'+x+' ∃'+y+' statement.'},
+  {s:'∀'+x+' ∈ ℝ ∃'+y+' ∈ ℝ, '+x+' + '+y+' = 0',dis:false,
+    ok:'Let '+x+' ∈ ℝ be arbitrary. Take '+y+' = −'+x+'.',
+    no:['Take '+y+' = 0. Let '+x+' ∈ ℝ be arbitrary.','Let '+y+' ∈ ℝ be arbitrary. Take '+x+' = −'+y+'.','Let '+x+', '+y+' ∈ ℝ be arbitrary.'],
+    why:'First an arbitrary '+x+', then a '+y+' built from it. The witness '+y+' = −'+x+' depends on '+x+', which is allowed because '+y+' is chosen after '+x+'.'},
+  {s:'∀'+eps+' &gt; 0 ∃'+n+' ∈ ℕ<sup>+</sup>, 1/'+n+' &lt; '+eps,dis:false,
+    ok:'Let '+eps+' &gt; 0 be arbitrary. Choose '+n+' ∈ ℕ<sup>+</sup> with '+n+' &gt; 1/'+eps+'.',
+    no:['Take '+n+' = 1. Let '+eps+' &gt; 0 be arbitrary.','Let '+n+' ∈ ℕ<sup>+</sup> be arbitrary. Take '+eps+' = 2/'+n+'.','Take '+eps+' = 1 and '+n+' = 2.'],
+    why:''+eps+' arrives arbitrary, and '+n+' is chosen afterwards, so it may depend on '+eps+'. Such an '+n+' exists by the Archimedean property. No single '+n+' works for every '+eps+'.'},
+  {s:'∃'+y+' ∈ ℕ<sup>+</sup> ∀'+x+' ∈ ℕ<sup>+</sup>, '+y+' ≤ '+x,dis:false,
+    ok:'Take '+y+' = 1. Let '+x+' ∈ ℕ<sup>+</sup> be arbitrary.',
+    no:['Let '+x+' ∈ ℕ<sup>+</sup> be arbitrary. Take '+y+' = '+x+'.','Let '+y+' ∈ ℕ<sup>+</sup> be arbitrary. Take '+x+' = '+y+'.','Take '+y+' = 1 and '+x+' = 5.'],
+    why:'One '+y+' must serve every '+x+', so it is exhibited first, before '+x+' is known. Taking '+y+' = '+x+' lets '+y+' depend on '+x+', which the order of the quantifiers forbids.'},
+  {s:'∃'+x+' ∈ ℤ, '+x+'² = 9',dis:false,
+    ok:'Take '+x+' = 3 and check that 3² = 9.',
+    no:['Let '+x+' ∈ ℤ be arbitrary and show '+x+'² = 9.','Let '+x+' be such that '+x+'² = 9, and deduce '+x+' = 3.','Suppose '+x+'² = 9 for every '+x+' ∈ ℤ.'],
+    why:'To prove an existential statement, exhibit a specific witness and verify it (existential generalization). “Let '+x+' be such that …” uses an existential statement you already have; it cannot prove one.'},
+  {s:'∀'+n+' ∈ ℤ, '+n+'² + '+n+' is even',dis:false,
+    ok:'Let '+n+' ∈ ℤ be arbitrary, and show that '+n+'² + '+n+' is even.',
+    no:['Take '+n+' = 2: then 2² + 2 = 6 is even.','Take '+n+' = 1 and '+n+' = 2, and check both.','Let '+n+' be such that '+n+'² + '+n+' is even.'],
+    why:'To prove a universal statement, work with an arbitrary element and conclude by universal generalization. Examples, however many, only check particular cases.'},
+  {s:'∀'+x+' ∈ ℝ, '+x+'² &gt; 0',dis:true,
+    ok:'Take '+x+' = 0: then '+x+'² = 0, which is not &gt; 0.',
+    no:['Let '+x+' ∈ ℝ be arbitrary and show '+x+'² ≤ 0.','Take '+x+' = 1: then '+x+'² = 1 &gt; 0.','Let '+x+' &gt; 0 be arbitrary and show '+x+'² &gt; 0.'],
+    why:'The negation of ∀'+x+' '+P(x)+' is ∃'+x+' ¬'+P(x)+', so one counterexample disproves it. Showing '+x+'² ≤ 0 for every '+x+' would be false and far more than needed.'},
+  {s:'∃'+x+' ∈ ℝ, '+x+'² &lt; 0',dis:true,
+    ok:'Let '+x+' ∈ ℝ be arbitrary, and show '+x+'² ≥ 0.',
+    no:['Take '+x+' = 1: then '+x+'² = 1, which is not &lt; 0.','Take '+x+' = −1 and show '+x+'² &lt; 0.','Let '+x+' &lt; 0 be arbitrary, and show '+x+'² &gt; 0.'],
+    why:'The negation of ∃'+x+' '+P(x)+' is ∀'+x+' ¬'+P(x)+', so you must show ¬'+P(c)+' for an arbitrary '+c+'. One failing example, or only the negative reals, leaves other candidates unchecked.'},
+  {s:'∀'+x+' ∈ ℝ ∃'+y+' ∈ ℝ, '+y+'² = '+x,dis:true,
+    ok:'Take '+x+' = −1, and show that no '+y+' ∈ ℝ has '+y+'² = −1.',
+    no:['Let '+x+' ∈ ℝ be arbitrary. Take '+y+' = √'+x+'.','Take '+x+' = 4 and '+y+' = 2.','Take '+x+' = −1 and '+y+' = 1: then '+y+'² ≠ '+x+'.'],
+    why:'The negation is ∃'+x+' ∀'+y+', '+y+'² ≠ '+x+': exhibit one '+x+', then rule out every '+y+'. Checking a single '+y+' does not show that no '+y+' works.'}
+];
+function qOrder(){
+  var r=pick(ORDER);
+  return {id:'order:'+r.s,topic:'Order of choices',prompt:r.dis?'Which opening disproves this statement?':'Which proof opening is right?',given:'',
+    formula:r.s,fclass:'mid',options:mc(r.ok,r.no),wide:true,
+    explain:r.why,review:(r.dis?'To disprove ':'To prove ')+r.s+': '+r.ok};
+}
+
+/* ---------- 4. next line (bank, multiple choice) ---------- */
+function D(goal,lines,ok,no,why){return {goal:goal,lines:lines,ok:ok,no:no,why:why}}
+var L1=[FXPQ,'premise'],L2=['∃'+x+' '+P(x),'premise'],L3=[P(c),'EI on 2'],L4=[P(c)+' → '+Q(c),'UI on 1'],L5=[Q(c),'modus ponens on 3, 4'];
+var FXQR='∀'+x+' ('+Q(x)+' → '+R(x)+')';
+var M3=['Let '+c+' be arbitrary',''],M4=[P(c)+' → '+Q(c),'UI on 1'],M5=[Q(c)+' → '+R(c),'UI on 2'],M6=[P(c)+' → '+R(c),'hypothetical syllogism on 4, 5'];
+var K1=['∃'+x+' ∀'+y+' '+L(x,y),'premise'],K2=['∀'+y+' '+L(c,y),'EI on 1'],K3=['Let '+d+' be arbitrary',''],K4=[L(c,d),'UI on 2'],K5=['∃'+x+' '+L(x,d),'EG on 4'];
+var NEXT=[
+  D('∃'+x+' '+Q(x),[L1,L2,L3],L4,[['∀'+x+' '+P(x),'UG on 3'],[P(c)+' → '+Q(d),'UI on 1'],['∃'+x+' '+Q(x),'EG on 3']],
+    'Apply the universal premise to the term at hand, '+c+', by universal instantiation. UG on line 3 is the standard error: '+c+' came from EI, so it is not arbitrary. UI must put the same term in every place.'),
+  D('∃'+x+' '+Q(x),[L1,L2,L3,L4],L5,[['∀'+x+' '+Q(x),'UG on 4'],[P(c),'modus ponens on 3, 4'],['∃'+x+' '+Q(x),'EG on 4']],
+    'Lines 3 and 4 are '+P(c)+' and '+P(c)+' → '+Q(c)+', so modus ponens gives '+Q(c)+'. EG on line 4 would give ∃'+x+' ('+P(x)+' → '+Q(x)+'), not the goal.'),
+  D('∃'+x+' '+Q(x),[L1,L2,L3,L4,L5],['∃'+x+' '+Q(x),'EG on 5'],[['∀'+x+' '+Q(x),'UG on 5'],[Q(a),'UI on 5'],['∃'+x+' '+Q(x),'EI on 5']],
+    'From '+Q(c)+', existential generalization gives ∃'+x+' '+Q(x)+'. UG is not allowed: '+c+' is the witness from EI, not an arbitrary element. UI applies only to a universal statement.'),
+  D('∀'+x+' ('+P(x)+' → '+R(x)+')',[L1,[FXQR,'premise'],M3],M4,[[P(c)+' → '+R(c),'UG on 1, 2'],['∀'+x+' '+Q(x),'UI on 1'],[P(c),'EI on 1']],
+    'To use a universal premise, apply it to the arbitrary '+c+' by universal instantiation. EI applies only to an existential statement, and UG produces a universal statement, not an instance.'),
+  D('∀'+x+' ('+P(x)+' → '+R(x)+')',[L1,[FXQR,'premise'],M3,M4,M5],M6,[[R(c),'modus ponens on 4, 5'],['∀'+x+' ('+P(x)+' → '+R(x)+')','UG on 5'],[P(c)+' → '+R(d),'hypothetical syllogism on 4, 5']],
+    'Lines 4 and 5 chain: '+P(c)+' → '+Q(c)+' and '+Q(c)+' → '+R(c)+' give '+P(c)+' → '+R(c)+' by hypothetical syllogism. Modus ponens needs '+P(c)+' itself, which we do not have.'),
+  D('∀'+x+' ('+P(x)+' → '+R(x)+')',[L1,[FXQR,'premise'],M3,M4,M5,M6],['∀'+x+' ('+P(x)+' → '+R(x)+')','UG on 6'],[['∃'+x+' ('+P(x)+' → '+R(x)+')','EI on 6'],[P(a)+' → '+R(a),'UG on 6'],['∀'+x+' ('+P(x)+' → '+R(c)+')','UG on 6']],
+    'Nothing was assumed about '+c+' beyond line 3, so universal generalization applies to line 6. UG must replace every occurrence of '+c+' by the variable.'),
+  D('∃'+x+' ('+P(x)+' ∨ '+Q(x)+')',[['∀'+x+' '+P(x),'premise']],[P(a),'UI on 1'],[['∃'+x+' '+P(x),'EI on 1'],[P(a)+' ∨ '+Q(a),'EG on 1'],['∃'+x+' '+Q(x),'UI on 1']],
+    'Use the universal premise on a term, '+a+' (the domain is nonempty). EI and EG are the wrong rules here: EI needs an existential statement and EG needs an instance.'),
+  D('∃'+x+' ('+P(x)+' ∨ '+Q(x)+')',[['∀'+x+' '+P(x),'premise'],[P(a),'UI on 1']],[P(a)+' ∨ '+Q(a),'addition on 2'],[[Q(a),'addition on 2'],[P(a)+' ∧ '+Q(a),'addition on 2'],['∃'+x+' ('+P(x)+' ∨ '+Q(x)+')','EG on 2']],
+    'Addition turns '+P(a)+' into '+P(a)+' ∨ '+Q(a)+'; EG on that line then reaches the goal. EG on line 2 itself would only give ∃'+x+' '+P(x)+'.'),
+  D('∀'+y+' ∃'+x+' '+L(x,y),[K1,K2,K3],K4,[[L(d,d),'UI on 2'],['∀'+x+' ∀'+y+' '+L(x,y),'UG on 2'],[L(c,d),'EI on 2']],
+    'Line 2 is universal in '+y+', so UI with the arbitrary '+d+' gives '+L(c,d)+'. The letter '+c+' is the witness from EI, so it can be neither replaced by '+d+' nor generalized.'),
+  D('∀'+y+' ∃'+x+' '+L(x,y),[K1,K2,K3,K4,K5],['∀'+y+' ∃'+x+' '+L(x,y),'UG on 5'],[['∃'+x+' ∀'+y+' '+L(x,y),'UG on 5'],['∀'+y+' ∀'+x+' '+L(x,y),'UG on 5'],['∀'+y+' ∃'+x+' '+L(x,y),'EG on 5']],
+    'Line 5 is about the arbitrary '+d+', so universal generalization on '+d+' gives the goal. UG adds a ∀ in front; it cannot turn the ∃ into a ∀ or move it, and EG introduces an ∃, not a ∀.')
+];
+function lineHtml(l){return l[0]+just('('+l[1]+')')}
+function qNext(){
+  var r=pick(NEXT);
+  var rows=r.lines.map(function(l,i){return '<tr><td class="n">'+(i+1)+'.</td><td>'+l[0]+'</td><td class="j">'+l[1]+'</td></tr>'}).join('')+
+    '<tr class="qq"><td class="n">'+(r.lines.length+1)+'.</td><td>?</td><td class="j"></td></tr>';
+  return {id:'next:'+r.goal+r.lines.length,topic:'Next line',prompt:'Which line comes next? Only one option is a valid step.',
+    given:'Goal: '+r.goal,formula:'<table class="deriv">'+rows+'</table>',fclass:'',
+    options:mc(lineHtml(r.ok),r.no.map(lineHtml)),math:true,wide:true,
+    explain:r.why,review:'Toward '+r.goal+', line '+(r.lines.length+1)+' after '+r.lines[r.lines.length-1][0]+' is '+lineHtml(r.ok)};
+}
+
+var MAKERS={name:qName,valid:qValid,order:qOrder,next:qNext};
+function makeQuestion(topics,lastId){
+  for(var i=0;i<12;i++){
+    var q=MAKERS[pick(topics)]();
+    if(q.id!==lastId&&q.options.filter(function(o){return o.ok}).length===1&&q.options.length>=2)return q;
+  }
+  return q;
+}
+window.__quantTest={makeQuestion:makeQuestion,MAKERS:MAKERS,VALID:VALID,ORDER:ORDER,NEXT:NEXT,PREDS:PREDS,strip:strip};
+
+/* ---------- game ---------- */
+var $=function(id){return document.getElementById(id)};
+var st=null,raf=0;
+function bestKey(len){return 'quantrules-drill-best-'+len}
+function readBest(len){try{return parseInt(localStorage.getItem(bestKey(len)),10)||0}catch(e){return 0}}
+function writeBest(len,v){try{localStorage.setItem(bestKey(len),String(v))}catch(e){}}
+function curLen(){return parseInt(document.querySelector('input[name=len]:checked').value,10)}
+function showBest(){var b=readBest(curLen());$('best').textContent=b?'Best for this length: '+b:''}
+function screen(name){['start','play','end'].forEach(function(s){$(s).hidden=s!==name});window.scrollTo(0,0);if(document.activeElement)document.activeElement.blur()}
+
+function startRound(){
+  var topics=[].slice.call(document.querySelectorAll('input[name=topic]:checked')).map(function(i){return i.value});
+  if(!topics.length){$('warn').hidden=false;return}
+  $('warn').hidden=true;
+  var len=curLen();
+  st={topics:topics,len:len,remaining:len*1000,paused:false,locked:false,score:0,wrong:0,streak:0,bestStreak:0,missed:[],q:null,last:0,over:false};
+  $('clock').style.visibility=len?'visible':'hidden';
+  screen('play');updateHud();nextQuestion();
+  cancelAnimationFrame(raf);raf=requestAnimationFrame(tick);
+}
+function tick(ts){
+  if(!st||st.over)return;
+  if(st.last&&!st.paused&&st.len>0)st.remaining-=Math.min(ts-st.last,250);
+  st.last=ts;
+  if(st.len>0){
+    $('fill').style.transform='scaleX('+Math.max(0,st.remaining/(st.len*1000))+')';
+    var s=Math.max(0,Math.ceil(st.remaining/1000));
+    $('time').textContent=Math.floor(s/60)+':'+('0'+s%60).slice(-2);
+    $('clock').classList.toggle('low',st.remaining<10000);
+    if(st.remaining<=0){endRound();return}
+  }else $('time').textContent='–';
+  raf=requestAnimationFrame(tick);
+}
+function updateHud(){$('score').textContent=st.score;$('streak').textContent=st.streak}
+
+function nextQuestion(){
+  if(!st||st.over)return;
+  var q=makeQuestion(st.topics,st.q?st.q.id:null);
+  st.q=q;st.locked=false;st.paused=false;
+  $('prompt').innerHTML=q.prompt;
+  $('given').innerHTML=q.given;$('given').hidden=!q.given;
+  $('given').className='given'+(q.givenWords?' words':'');
+  $('formula').innerHTML=q.formula;
+  $('formula').className='formula'+(q.fclass?' '+q.fclass:'');
+  $('feedback').hidden=true;$('flash').textContent='';
+  var box=$('options');box.innerHTML='';
+  box.className='options'+((q.options.length===2||!q.math)&&!q.wide?' two':'');
+  q.options.forEach(function(o,i){
+    var b=document.createElement('button');
+    b.className='option'+(q.math&&!o.word?' math-option':'');
+    b.innerHTML='<span class="k">'+(i+1)+'</span><span>'+o.h+'</span><span class="tag"></span>';
+    b.addEventListener('click',function(){answer(i)});
+    box.appendChild(b);
+  });
+}
+function answer(i){
+  if(!st||st.over||st.locked||!st.q||i>=st.q.options.length)return;
+  st.locked=true;
+  var q=st.q,btns=$('options').children;
+  [].forEach.call(btns,function(b){b.disabled=true});
+  if(q.options[i].ok){
+    st.score++;st.streak++;st.bestStreak=Math.max(st.bestStreak,st.streak);
+    btns[i].classList.add('good');$('flash').textContent='Correct';updateHud();
+    setTimeout(nextQuestion,200);
+    return;
+  }
+  st.wrong++;st.streak=0;st.paused=true;updateHud();
+  btns[i].classList.add('bad');btns[i].querySelector('.tag').textContent='your answer';
+  q.options.forEach(function(o,j){
+    if(o.ok){btns[j].classList.add('good');btns[j].querySelector('.tag').textContent='correct answer'}
+    else if(j!==i)btns[j].classList.add('dim');
+  });
+  if(!st.missed.some(function(m){return m.review===q.review}))st.missed.push({topic:q.topic,review:q.review,why:q.explain});
+  $('fbHead').textContent='Not quite';
+  $('explain').innerHTML=q.explain;
+  $('feedback').hidden=false;$('nextBtn').focus();
+}
+function endRound(){
+  if(!st||st.over)return;
+  st.over=true;cancelAnimationFrame(raf);
+  var total=st.score+st.wrong,prev=readBest(st.len),isBest=st.score>prev;
+  if(isBest)writeBest(st.len,st.score);
+  $('tally').textContent=st.score+' right out of '+total+(isBest&&st.score>0?'. New best.':'');
+  $('eAcc').textContent=total?Math.round(100*st.score/total)+'%':'–';
+  $('eStreak').textContent=st.bestStreak;
+  $('eBest').textContent=Math.max(prev,st.score);
+  $('reviewHead').textContent=st.missed.length?'Review these':(total?'Nothing missed this round':'No questions answered');
+  $('review').innerHTML=st.missed.map(function(m){
+    return '<li><span class="ok">'+m.topic+'</span><div class="mf">'+m.review+'</div><p class="why">'+m.why+'</p></li>';
+  }).join('');
+  screen('end');showBest();
+}
+
+$('startBtn').addEventListener('click',startRound);
+$('againBtn').addEventListener('click',startRound);
+$('settingsBtn').addEventListener('click',function(){screen('start');showBest()});
+$('endBtn').addEventListener('click',endRound);
+$('nextBtn').addEventListener('click',nextQuestion);
+[].forEach.call(document.querySelectorAll('input[name=len]'),function(i){i.addEventListener('change',showBest)});
+document.addEventListener('keydown',function(e){
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  if(!st||st.over||$('play').hidden)return;
+  var k=e.key;
+  if(k==='Escape'){endRound();return}
+  if(st.paused){if(k===' '||k==='Enter'){e.preventDefault();nextQuestion()}return}
+  if(k>='1'&&k<='4'){e.preventDefault();answer(parseInt(k,10)-1)}
+  else if((k==='t'||k==='T'||k==='f'||k==='F')&&st.q.options[0].word){
+    var want=(k==='t'||k==='T')?'True':'False';
+    st.q.options.forEach(function(o,j){if(o.h===want)answer(j)});
+  }
+});
+showBest();
+})();
+</script>
+</body>
+</html>

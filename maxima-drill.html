@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maxima and bounds</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="drills.css">
+<style>
+.stage>*{width:100%}
+.given{font-family:var(--math);font-size:1.15rem;color:var(--muted);margin:0 0 .5rem;overflow-x:auto}
+.stage .formula{margin:0 0 1rem;overflow-x:auto}
+.formula .stem{font-family:var(--ui);font-size:clamp(1.15rem,3.4vw,1.45rem);margin:0 auto}
+#warn{color:var(--bad)}
+</style>
+</head>
+<body>
+<main class="page">
+
+<section id="start">
+  <header class="masthead">
+    <p class="eyebrow"><a href="index.html">Analysis I</a> · Chapter 2 · Worked example: maxima of a function</p>
+    <h1>Maxima and bounds</h1>
+    <p class="lede">A number <i>M</i> is a maximum of <i>f</i> on <i>A</i> when (i) <i>f</i>(<i>x</i>) ≤ <i>M</i> for every <i>x</i> ∈ <i>A</i> and (ii) <i>f</i>(<i>y</i>) = <i>M</i> for some <i>y</i> ∈ <i>A</i>. Find maxima on finite sets and intervals, spot which condition fails, and practise the moves of the proof. A miss pauses the clock and explains itself. Keys 1 to 4 pick an answer.</p>
+  </header>
+
+  <div class="settings">
+    <div class="field">
+      <span class="field-label">What to practise</span>
+      <div class="chips">
+        <label class="chip"><input type="checkbox" name="topic" value="finite" checked>Finite sets</label>
+        <label class="chip"><input type="checkbox" name="topic" value="which" checked>Which condition fails</label>
+        <label class="chip"><input type="checkbox" name="topic" value="intervals" checked>Intervals</label>
+        <label class="chip"><input type="checkbox" name="topic" value="moves" checked>Proof moves</label>
+      </div>
+    </div>
+    <div class="field">
+      <span class="field-label">Round length</span>
+      <div class="chips">
+        <label class="chip"><input type="radio" name="len" value="60" checked>60 seconds</label>
+        <label class="chip"><input type="radio" name="len" value="120">2 minutes</label>
+        <label class="chip"><input type="radio" name="len" value="0">Untimed</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions"><button class="btn btn-lg" id="startBtn">Start round</button><span class="best" id="best"></span></div>
+  <p class="hint" id="warn" hidden>Pick at least one thing to practise.</p>
+  <p class="hint"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> pick an answer, <kbd>T</kbd> <kbd>F</kbd> on true-or-false questions, <kbd>Space</kbd> continues after a miss, <kbd>Esc</kbd> ends the round.</p>
+</section>
+
+<section id="play" hidden>
+  <div class="panel">
+    <div class="hud">
+      <div class="stat"><b id="score">0</b>score</div>
+      <div class="stat"><b id="streak">0</b>streak</div>
+      <div class="stat"><b id="time">1:00</b>time</div>
+      <button class="btn-link" id="endBtn">End round</button>
+    </div>
+    <div class="clock" id="clock"><i id="fill"></i></div>
+
+    <div class="stage">
+      <p class="prompt" id="prompt"></p>
+      <p class="given" id="given"></p>
+      <div class="formula" id="formula"></div>
+      <div class="options" id="options"></div>
+      <div class="feedback bad" id="feedback" aria-live="polite" hidden>
+        <h3 id="fbHead"></h3>
+        <p id="explain"></p>
+        <button class="btn" id="nextBtn">Next question (Space)</button>
+      </div>
+      <p class="flash" id="flash" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
+
+<section id="end" hidden class="results">
+  <p class="tally" id="tally"></p>
+  <div class="bignums">
+    <div><b id="eAcc"></b><span>accuracy</span></div>
+    <div><b id="eStreak"></b><span>best streak</span></div>
+    <div><b id="eBest"></b><span>best for this length</span></div>
+  </div>
+  <h2 id="reviewHead">Review these</h2>
+  <ul class="missed" id="review"></ul>
+  <div class="actions">
+    <button class="btn" id="againBtn">Play again</button>
+    <button class="btn btn-outline" id="settingsBtn">Change settings</button>
+  </div>
+</section>
+
+<footer class="site-footer"><span></span><a href="index.html">All Analysis I drills</a></footer>
+</main>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- helpers ---------- */
+function rnd(n){return Math.floor(Math.random()*n)}
+function pick(a){return a[rnd(a.length)]}
+function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=rnd(i+1),t=a[i];a[i]=a[j];a[j]=t}return a}
+function num(n){return n<0?'−'+(-n):String(n)}
+function uniqSorted(xs){var s={};xs.forEach(function(x){s[x]=1});return Object.keys(s).map(Number).sort(function(a,b){return a-b})}
+function fmtSet(xs){xs=uniqSorted(xs);return xs.length?'{'+xs.map(num).join(', ')+'}':'∅'}
+function range(a,b){var o=[];for(var x=a;x<=b;x++)o.push(x);return o}
+var I=function(s){return '<i>'+s+'</i>'};
+var A=I('A'),X=I('x'),Y=I('y'),F=I('f'),M=I('M'),C=I('c');
+function fx(v){return F+'('+v+')'}
+var FX=fx(X),PLUS='ℝ<sup>+</sup>';
+
+/* Options: [{h, ok}] with exactly one ok and all texts distinct. */
+function mc(correct,wrongs){
+  var seen={},opts=[{h:correct,ok:true}];seen[correct]=1;
+  wrongs.forEach(function(w){if(opts.length<4&&!seen[w]){seen[w]=1;opts.push({h:w,ok:false})}});
+  return shuffle(opts);
+}
+function tf(truth){return [{h:'True',ok:truth,word:true},{h:'False',ok:!truth,word:true}]}
+
+/* ---------- finite sets (computed exactly with integers) ---------- */
+var FUNCS=[
+  {k:'sq',h:X+'²',f:function(x){return x*x}},
+  {k:'negsq',h:'−'+X+'²',f:function(x){return -x*x}},
+  {k:'sqm2x',h:X+'² − 2'+X,f:function(x){return x*x-2*x}},
+  {k:'absm1',h:'|'+X+' − 1|',f:function(x){return Math.abs(x-1)}},
+  {k:'3mx',h:'3 − '+X,f:function(x){return 3-x}},
+  {k:'xxm2',h:X+'('+X+' − 2)',f:function(x){return x*(x-2)}},
+  {k:'2xp1',h:'2'+X+' + 1',f:function(x){return 2*x+1}},
+  {k:'negabs',h:'−|'+X+'|',f:function(x){return -Math.abs(x)}}
+];
+function finSetup(){
+  var n=4+rnd(3),a=uniqSorted(shuffle(range(-3,4)).slice(0,n)),fn=pick(FUNCS);
+  var vals=a.map(fn.f),max=Math.max.apply(null,vals),min=Math.min.apply(null,vals);
+  var s={a:a,fn:fn,vals:vals,max:max,min:min};
+  s.given=FX+' = '+fn.h+', &nbsp;'+A+' = '+fmtSet(a);
+  s.list=a.map(function(x){return fx(num(x))+' = '+num(fn.f(x))}).join(', ');
+  s.where=function(v){return a.filter(function(x){return fn.f(x)===v}).map(function(x){return X+' = '+num(x)}).join(' and ')};
+  s.first=function(v){for(var i=0;i<a.length;i++)if(fn.f(a[i])===v)return a[i]};
+  s.desc=FX+' = '+fn.h+' on '+A+' = '+fmtSet(a);
+  return s;
+}
+function qFinite(){
+  var s=finSetup(),maxA=s.a[s.a.length-1],minA=s.a[0];
+  if(Math.random()<0.45){
+    var correct=num(s.max);
+    var wrongs=[num(maxA),num(s.fn.f(maxA)),num(s.min),num(s.max+1),num(s.fn.f(minA)),num(s.max-1),num(s.max+2)];
+    var note=num(maxA)!==correct?' The maximum is a value of '+F+', not the largest element of '+A+'.':'';
+    return {id:'fin:'+s.desc,topic:'Finite sets',prompt:'What is the maximum '+M+' of '+F+' on '+A+'?',given:s.given,formula:M+' = ?',
+      options:mc(correct,wrongs),math:true,data:{kind:'mc',f:s.fn.k,A:s.a},
+      explain:'The values are '+s.list+'. The largest is '+correct+', at '+s.where(s.max)+'. It is an upper bound for the values, so condition (i) holds, and it is attained, so condition (ii) holds.'+note,
+      review:'Maximum of '+s.desc+': '+correct};
+  }
+  var kind=pick(['max','ub','att']),m;
+  if(kind==='max')m=s.max;
+  else if(kind==='ub')m=s.max+1+rnd(3);
+  else m=pick(uniqSorted(s.vals).filter(function(v){return v<s.max}));
+  var truth=kind==='max',ex;
+  if(kind==='max')ex='True. The values are '+s.list+'. None exceeds '+num(m)+', so condition (i) holds, and '+fx(num(s.first(m)))+' = '+num(m)+', so condition (ii) holds.';
+  else if(kind==='ub')ex='False. The values are '+s.list+'. Every one is below '+num(m)+', so condition (i) holds, but no '+X+' ∈ '+A+' has '+FX+' = '+num(m)+', so condition (ii) fails. '+num(m)+' is an upper bound that is not attained; the maximum is '+num(s.max)+'.';
+  else ex='False. The values are '+s.list+'. '+fx(num(s.first(m)))+' = '+num(m)+', so condition (ii) holds, but '+fx(num(s.first(s.max)))+' = '+num(s.max)+' &gt; '+num(m)+', so condition (i) fails. The maximum is '+num(s.max)+'.';
+  return {id:'fintf:'+s.desc+m,topic:'Finite sets',prompt:'True or false: '+M+' is a maximum of '+F+' on '+A+'.',given:s.given,formula:M+' = '+num(m),
+    options:tf(truth),math:true,data:{kind:'tf',f:s.fn.k,A:s.a,M:m},explain:ex,
+    review:M+' = '+num(m)+' for '+s.desc+': '+(truth?'a maximum':'not a maximum')};
+}
+
+/* ---------- which condition fails ---------- */
+var WHICH=['(i) fails: some '+FX+' is larger than '+M,'(ii) fails: no '+X+' in '+A+' has '+FX+' = '+M,'Both fail','Neither: '+M+' is a maximum'];
+function qWhich(){
+  var s=finSetup(),kind=pick(['i','ii','both','neither']),m;
+  if(kind==='neither')m=s.max;
+  else if(kind==='ii')m=s.max+1+rnd(3);
+  else if(kind==='i')m=pick(uniqSorted(s.vals).filter(function(v){return v<s.max}));
+  else m=pick(range(s.min-2,s.max-1).filter(function(v){return s.vals.indexOf(v)<0}));
+  var ans={i:0,ii:1,both:2,neither:3}[kind];
+  var w=s.first(s.max),big=fx(num(w))+' = '+num(s.max)+' &gt; '+num(m);
+  var ex='The values are '+s.list+'. ';
+  if(kind==='neither')ex+='No value exceeds '+num(m)+', so condition (i) holds, and '+fx(num(s.first(m)))+' = '+num(m)+', so condition (ii) holds. '+num(m)+' is the maximum.';
+  else if(kind==='i')ex+='The witness '+X+' = '+num(w)+' gives '+big+', so condition (i) fails. But '+fx(num(s.first(m)))+' = '+num(m)+', so condition (ii) holds.';
+  else if(kind==='ii')ex+='Every value is below '+num(m)+', so condition (i) holds. None equals '+num(m)+', so condition (ii) fails.';
+  else ex+='The witness '+X+' = '+num(w)+' gives '+big+', so condition (i) fails. None of the values equals '+num(m)+', so condition (ii) fails too.';
+  return {id:'which:'+s.desc+m,topic:'Which condition fails',prompt:'Which condition for a maximum fails?',given:s.given,formula:M+' = '+num(m),
+    options:WHICH.map(function(h,i){return {h:h,ok:i===ans}}),math:false,data:{kind:'which',f:s.fn.k,A:s.a,M:m},explain:ex,
+    review:M+' = '+num(m)+' for '+s.desc+': '+WHICH[ans].replace(/:.*/,'')};
+}
+
+/* ---------- intervals (bank) ----------
+   dom: {lo,hi,lc,hc}. max: the maximum value (null if none), at: a point where it is attained,
+   sup: for "no maximum", the upper bound that is approached but never reached (null when unbounded). */
+function D(lo,hi,lc,hc){return {lo:lo,hi:hi,lc:lc,hc:hc}}
+var R=D(-Infinity,Infinity,false,false),RP=D(0,Infinity,false,false),NOMAX='no maximum';
+var INTERVAL_BANK=[
+  {f:X,A:'(0, 1]',fn:function(x){return x},dom:D(0,1,false,true),max:1,at:1,ans:'1',wr:[NOMAX,'0','1/2'],
+    why:fx(1)+' = 1 and 1 ∈ (0, 1], so 1 is attained. Every '+X+' ∈ (0, 1] has '+X+' ≤ 1, so 1 is an upper bound. The open end at 0 is at the bottom and does not matter.'},
+  {f:X,A:'(0, 1)',fn:function(x){return x},dom:D(0,1,false,false),max:null,sup:1,ans:NOMAX,wr:['1','0','1/2'],
+    why:'1 is an upper bound, but it is not attained because 1 ∉ (0, 1). Nothing smaller works: any '+Y+' ∈ (0, 1) has ('+Y+' + 1)/2 ∈ (0, 1) with a larger value, so condition (i) fails for every attained value.'},
+  {f:X+'²',A:'[−2, 1]',fn:function(x){return x*x},dom:D(-2,1,true,true),max:4,at:-2,ans:'4',wr:['1',NOMAX,'2'],
+    why:'For '+X+' ∈ [−2, 1] we have |'+X+'| ≤ 2, so '+X+'² ≤ 4, and '+fx('−2')+' = 4. The maximum comes from the left endpoint; at the right endpoint '+fx(1)+' is only 1.'},
+  {f:X+'²',A:'(−1, 1)',fn:function(x){return x*x},dom:D(-1,1,false,false),max:null,sup:1,ans:NOMAX,wr:['1','0','1/2'],
+    why:'Every value satisfies '+X+'² &lt; 1, so 1 is an upper bound, but reaching it needs '+X+' = ±1, which are excluded. For any '+Y+' ∈ (−1, 1), the point (|'+Y+'| + 1)/2 is in the interval and has a larger square, so no attained value is an upper bound.'},
+  {f:'−('+X+' − 1)²',A:'ℝ',fn:function(x){return -(x-1)*(x-1)},dom:R,max:0,at:1,ans:'0',wr:['1','−1',NOMAX],
+    why:'('+X+' − 1)² ≥ 0 gives '+FX+' ≤ 0 for every '+X+', which is condition (i), and '+fx(1)+' = 0, which is condition (ii).'},
+  {f:'1/'+X,A:'[1, ∞)',fn:function(x){return 1/x},dom:D(1,Infinity,true,false),max:1,at:1,ans:'1',wr:['0',NOMAX,'1/2'],
+    why:'For '+X+' ≥ 1 we have 1/'+X+' ≤ 1, and '+fx(1)+' = 1. The values sink toward 0, but that concerns the bottom, not the top.'},
+  {f:'−'+X+'²',A:'(0, 1)',fn:function(x){return -x*x},dom:D(0,1,false,false),max:null,sup:0,ans:NOMAX,wr:['0','−1','1'],
+    why:'Every value is negative, so 0 is an upper bound, but '+FX+' = 0 needs '+X+' = 0, which is excluded. For any '+Y+' ∈ (0, 1), '+fx(Y+'/2')+' = −'+Y+'²/4 &gt; '+fx(Y)+', so no attained value is an upper bound.'},
+  {f:X,A:'ℝ',fn:function(x){return x},dom:R,max:null,sup:null,ans:NOMAX,wr:['0','∞','1'],
+    why:'There is no upper bound at all: for any '+M+', the point '+X+' = '+M+' + 1 gives '+FX+' &gt; '+M+', so condition (i) fails. ∞ is not a real number, so it is not a candidate.'},
+  {f:'−|'+X+'|',A:'ℝ',fn:function(x){return -Math.abs(x)},dom:R,max:0,at:0,ans:'0',wr:[NOMAX,'1','−1'],
+    why:'|'+X+'| ≥ 0 gives '+FX+' ≤ 0 for every '+X+', and '+fx(0)+' = 0.'},
+  {f:X+' − '+X+'²',A:'ℝ',fn:function(x){return x-x*x},dom:R,max:0.25,at:0.5,ans:'1/4',wr:['1/2','0',NOMAX],
+    why:X+' − '+X+'² = 1/4 − ('+X+' − 1/2)² ≤ 1/4, with equality at '+X+' = 1/2. So 1/4 is the maximum; 1/2 is where it is attained.'},
+  {f:'−('+X+' + 1/'+X+')',A:PLUS,fn:function(x){return -(x+1/x)},dom:RP,max:-2,at:1,ans:'−2',wr:['0','−1',NOMAX],
+    why:'For '+X+' &gt; 0, '+X+' + 1/'+X+' − 2 = ('+X+' − 1)²/'+X+' ≥ 0, so '+FX+' ≤ −2. (Or by AM–GM: ('+X+' + 1/'+X+')/2 ≥ √('+X+' · 1/'+X+') = 1.) And '+fx(1)+' = −(1 + 1) = −2.'},
+  {f:X+'/('+X+'² + 1)',A:PLUS,fn:function(x){return x/(x*x+1)},dom:RP,max:0.5,at:1,ans:'1/2',wr:['1','0',NOMAX],
+    why:'1/2 − '+X+'/('+X+'² + 1) = ('+X+' − 1)²/(2('+X+'² + 1)) ≥ 0, so '+FX+' ≤ 1/2, and '+fx(1)+' = 1/2.'},
+  {f:'3',A:'[0, 2]',fn:function(){return 3},dom:D(0,2,true,true),max:3,at:0,ans:'3',wr:['2',NOMAX,'0'],
+    why:FX+' = 3 ≤ 3 for every '+X+', and '+fx(0)+' = 3. A maximum only has to be attained somewhere; being attained at every point is fine. The value is unique, not the point.'},
+  {f:'1 − 1/'+X,A:'[1, ∞)',fn:function(x){return 1-1/x},dom:D(1,Infinity,true,false),max:null,sup:1,ans:NOMAX,wr:['1','0','∞'],
+    why:'1/'+X+' &gt; 0 gives '+FX+' &lt; 1, so 1 is an upper bound that is never reached. For any '+Y+' ≥ 1, '+fx(Y+' + 1')+' &gt; '+fx(Y)+', so no attained value is an upper bound either.'},
+  {f:X+'²',A:'(−2, 1]',fn:function(x){return x*x},dom:D(-2,1,false,true),max:null,sup:4,ans:NOMAX,wr:['4','1','0'],
+    why:'Every value is below 4, but 4 would need '+X+' = −2, which is excluded. For '+Y+' ∈ (−2, 0), the midpoint ('+Y+' − 2)/2 lies in (−2, '+Y+') and has a larger square; for '+Y+' ∈ [0, 1], '+fx(Y)+' ≤ 1 &lt; '+fx('−3/2')+'. So no attained value is an upper bound.'},
+  {f:'1/'+X,A:'(0, 1]',fn:function(x){return 1/x},dom:D(0,1,false,true),max:null,sup:null,ans:NOMAX,wr:['1','0','∞'],
+    why:'The values are not bounded above: given any '+M+', the point '+X+' = 1/(|'+M+'| + 1) is in (0, 1] and '+FX+' = |'+M+'| + 1 &gt; '+M+'. The value 1 is the minimum, not the maximum.'}
+];
+function qIntervals(){
+  var r=pick(INTERVAL_BANK),opts=mc(r.ans,r.wr);
+  opts.forEach(function(o){if(o.h===NOMAX)o.plain=true});
+  var d=FX+' = '+r.f+' on '+A+' = '+r.A;
+  return {id:'int:'+d,topic:'Intervals',prompt:'What is the maximum '+M+' of '+F+' on '+A+'?',given:FX+' = '+r.f+', &nbsp;'+A+' = '+r.A,formula:M+' = ?',
+    options:opts,math:true,explain:r.why,review:'Maximum of '+d+': '+r.ans};
+}
+
+/* ---------- proof moves (bank) ---------- */
+var MOVES=[
+  ['You are proving condition (i): ∀'+X+' ∈ '+A+', '+FX+' ≤ '+M+'. What is the first line?','Let '+X+' ∈ '+A+' be arbitrary.',
+    ['Choose '+X+' ∈ '+A+' with '+FX+' = '+M+'.','Suppose some '+X+' ∈ '+A+' has '+FX+' ≤ '+M+'.','Let '+X+' = '+M+'.'],
+    'A “for all” statement is proved by fixing an arbitrary element and proving the claim for it. Nothing may be assumed about '+X+' beyond '+X+' ∈ '+A+'.',false],
+  ['How do you prove condition (ii): ∃'+Y+' ∈ '+A+', '+fx(Y)+' = '+M+'?','Exhibit a specific '+Y+' ∈ '+A+' and check that '+fx(Y)+' = '+M+'.',
+    ['Let '+Y+' ∈ '+A+' be arbitrary and show '+fx(Y)+' = '+M+'.','Show that '+fx(Y)+' ≤ '+M+' for every '+Y+' ∈ '+A+'.','Show that no '+Y+' ∈ '+A+' has '+fx(Y)+' &gt; '+M+'.'],
+    'A “there exists” statement is proved by naming a witness. In the worked example the witness is '+Y+' = 1, with '+fx(1)+' = −2.',false],
+  ['The negation of “'+M+' is an upper bound for the values of '+F+' on '+A+'” is',
+    '∃'+X+' ∈ '+A+', '+FX+' &gt; '+M,['∀'+X+' ∈ '+A+', '+FX+' &gt; '+M,'∃'+X+' ∈ '+A+', '+FX+' ≥ '+M,'∀'+X+' ∈ '+A+', '+FX+' ≥ '+M],
+    'Negating ∀'+X+' ∈ '+A+', '+FX+' ≤ '+M+' turns ∀ into ∃ and ≤ into &gt;. One witness above '+M+' is enough.',true],
+  [''+M+'<sub>1</sub> and '+M+'<sub>2</sub> are both maxima of '+F+' on '+A+'. How does the proof that '+M+'<sub>1</sub> = '+M+'<sub>2</sub> go?',
+    M+'<sub>2</sub> = '+fx(C)+' for some '+C+' ∈ '+A+' by condition (ii); then '+fx(C)+' ≤ '+M+'<sub>1</sub> by condition (i), so '+M+'<sub>2</sub> ≤ '+M+'<sub>1</sub>. Symmetrically '+M+'<sub>1</sub> ≤ '+M+'<sub>2</sub>.',
+    ['Both are upper bounds, so '+M+'<sub>1</sub> ≤ '+M+'<sub>2</sub> and '+M+'<sub>2</sub> ≤ '+M+'<sub>1</sub> with nothing more to check.','Both are attained at the same point '+C+', so '+M+'<sub>1</sub> = '+fx(C)+' = '+M+'<sub>2</sub>.','Any '+X+' ∈ '+A+' has '+FX+' ≤ '+M+'<sub>1</sub> and '+FX+' ≤ '+M+'<sub>2</sub>, so '+M+'<sub>1</sub> = '+M+'<sub>2</sub>.'],
+    'Each maximum is attained (condition (ii)) and each is an upper bound (condition (i)). Combining the attainment of one with the bound of the other gives one inequality; swapping roles gives the other. The two maxima need not be attained at the same point.',false],
+  ['The proof that −2 is the maximum of −('+X+' + 1/'+X+') on '+PLUS+' rests in the end on which single fact?','Squares are nonnegative: ('+C+' − 1)² ≥ 0.',
+    [F+' is continuous on '+PLUS+'.','The derivative of '+F+' is 0 at '+X+' = 1.',PLUS+' is bounded above.'],
+    'For '+C+' &gt; 0, ('+C+' − 1)² ≥ 0 rearranges to '+C+' + 1/'+C+' ≥ 2, that is, −('+C+' + 1/'+C+') ≤ −2. The AM–GM inequality gives the same bound and is itself a consequence of a square being nonnegative.',false],
+  ['Proving condition (i) by starting “Let '+X+' ∈ '+A+' be arbitrary” and ending with '+FX+' ≤ '+M+' uses which rule?','Universal generalization (UG)',
+    ['Existential generalization (EG)','Universal instantiation (UI)','Existential instantiation (EI)'],
+    'Having proved '+FX+' ≤ '+M+' for an arbitrary '+X+' ∈ '+A+', we conclude it for all '+X+' ∈ '+A+'. That step is universal generalization.',false],
+  ['Proving condition (ii) for the example by noting 1 ∈ '+PLUS+' and '+fx(1)+' = −2 uses which rule?','Existential generalization (EG)',
+    ['Universal generalization (UG)','Universal instantiation (UI)','Existential instantiation (EI)'],
+    'From a specific witness satisfying the property we conclude that some element satisfies it. That step is existential generalization.',false],
+  ['AM–GM says ('+X+' + '+Y+')/2 ≥ √('+X+Y+') for all '+X+', '+Y+' &gt; 0. Applying it to the particular pair '+X+' = '+C+', '+Y+' = 1/'+C+' uses which rule?','Universal instantiation (UI)',
+    ['Universal generalization (UG)','Existential generalization (EG)','Existential instantiation (EI)'],
+    'A statement known for all '+X+', '+Y+' &gt; 0 is specialized to one particular pair. That is universal instantiation.',false],
+  ['In the uniqueness proof, “'+M+'<sub>2</sub> is attained, so let '+C+' ∈ '+A+' with '+fx(C)+' = '+M+'<sub>2</sub>” uses which rule?','Existential instantiation (EI)',
+    ['Existential generalization (EG)','Universal instantiation (UI)','Universal generalization (UG)'],
+    'We know some element has '+fx(C)+' = '+M+'<sub>2</sub> and give it a name, '+C+'. Naming a witness of a known “there exists” is existential instantiation.',false],
+  ['To show that 1 is not a maximum of '+FX+' = '+X+' on (0, 2) by showing condition (i) fails, what suffices?','Exhibit one '+X+' ∈ (0, 2) with '+X+' &gt; 1, such as '+X+' = 3/2.',
+    ['Show that '+X+' &gt; 1 for every '+X+' ∈ (0, 2).','Show that 1 is attained.','Show that '+F+' has no upper bound on (0, 2).'],
+    'Condition (i) failing means ∃'+X+' ∈ '+A+', '+FX+' &gt; '+M+', so a single witness settles it. ('+F+' is bounded above by 2 here, so the last option is false anyway.)',false]
+];
+function qMoves(){
+  var r=pick(MOVES);
+  return {id:'move:'+r[0],topic:'Proof moves',prompt:'Which is right?',given:'',formula:'<p class="stem">'+r[0]+'</p>',
+    options:mc(r[1],r[2]),math:r[4],explain:r[3],review:r[0]+' '+r[1]};
+}
+
+var MAKERS={finite:qFinite,which:qWhich,intervals:qIntervals,moves:qMoves};
+function makeQuestion(topics,lastId){
+  for(var i=0;i<12;i++){
+    var q=MAKERS[pick(topics)]();
+    if(q.id!==lastId&&q.options.filter(function(o){return o.ok}).length===1&&q.options.length>=2)return q;
+  }
+  return q;
+}
+window.__maxTest={makeQuestion:makeQuestion,INTERVAL_BANK:INTERVAL_BANK,MOVES:MOVES,WHICH:WHICH,num:num};
+
+/* ---------- game ---------- */
+var $=function(id){return document.getElementById(id)};
+var st=null,raf=0;
+function bestKey(len){return 'maxima-drill-best-'+len}
+function readBest(len){try{return parseInt(localStorage.getItem(bestKey(len)),10)||0}catch(e){return 0}}
+function writeBest(len,v){try{localStorage.setItem(bestKey(len),String(v))}catch(e){}}
+function curLen(){return parseInt(document.querySelector('input[name=len]:checked').value,10)}
+function showBest(){var b=readBest(curLen());$('best').textContent=b?'Best for this length: '+b:''}
+function screen(name){['start','play','end'].forEach(function(s){$(s).hidden=s!==name});window.scrollTo(0,0);if(document.activeElement)document.activeElement.blur()}
+
+function startRound(){
+  var topics=[].slice.call(document.querySelectorAll('input[name=topic]:checked')).map(function(i){return i.value});
+  if(!topics.length){$('warn').hidden=false;return}
+  $('warn').hidden=true;
+  var len=curLen();
+  st={topics:topics,len:len,remaining:len*1000,paused:false,locked:false,score:0,wrong:0,streak:0,bestStreak:0,missed:[],q:null,last:0,over:false};
+  $('clock').style.visibility=len?'visible':'hidden';
+  screen('play');updateHud();nextQuestion();
+  cancelAnimationFrame(raf);raf=requestAnimationFrame(tick);
+}
+function tick(ts){
+  if(!st||st.over)return;
+  if(st.last&&!st.paused&&st.len>0)st.remaining-=Math.min(ts-st.last,250);
+  st.last=ts;
+  if(st.len>0){
+    $('fill').style.transform='scaleX('+Math.max(0,st.remaining/(st.len*1000))+')';
+    var s=Math.max(0,Math.ceil(st.remaining/1000));
+    $('time').textContent=Math.floor(s/60)+':'+('0'+s%60).slice(-2);
+    $('clock').classList.toggle('low',st.remaining<10000);
+    if(st.remaining<=0){endRound();return}
+  }else $('time').textContent='–';
+  raf=requestAnimationFrame(tick);
+}
+function updateHud(){$('score').textContent=st.score;$('streak').textContent=st.streak}
+
+function nextQuestion(){
+  if(!st||st.over)return;
+  var q=makeQuestion(st.topics,st.q?st.q.id:null);
+  st.q=q;st.locked=false;st.paused=false;
+  $('prompt').innerHTML=q.prompt;
+  $('given').innerHTML=q.given;$('given').hidden=!q.given;
+  $('formula').innerHTML=q.formula;
+  $('feedback').hidden=true;$('flash').textContent='';
+  var box=$('options');box.innerHTML='';
+  box.className='options'+(q.options.length===2||!q.math?' two':'');
+  q.options.forEach(function(o,i){
+    var b=document.createElement('button');
+    b.className='option'+(q.math&&!o.word&&!o.plain?' math-option':'');
+    b.innerHTML='<span class="k">'+(i+1)+'</span><span>'+o.h+'</span><span class="tag"></span>';
+    b.addEventListener('click',function(){answer(i)});
+    box.appendChild(b);
+  });
+}
+function answer(i){
+  if(!st||st.over||st.locked||!st.q||i>=st.q.options.length)return;
+  st.locked=true;
+  var q=st.q,btns=$('options').children;
+  [].forEach.call(btns,function(b){b.disabled=true});
+  if(q.options[i].ok){
+    st.score++;st.streak++;st.bestStreak=Math.max(st.bestStreak,st.streak);
+    btns[i].classList.add('good');$('flash').textContent='Correct';updateHud();
+    setTimeout(nextQuestion,200);
+    return;
+  }
+  st.wrong++;st.streak=0;st.paused=true;updateHud();
+  btns[i].classList.add('bad');btns[i].querySelector('.tag').textContent='your answer';
+  q.options.forEach(function(o,j){
+    if(o.ok){btns[j].classList.add('good');btns[j].querySelector('.tag').textContent='correct answer'}
+    else if(j!==i)btns[j].classList.add('dim');
+  });
+  if(!st.missed.some(function(m){return m.review===q.review}))st.missed.push({topic:q.topic,review:q.review,why:q.explain});
+  $('fbHead').textContent='Not quite';
+  $('explain').innerHTML=q.explain;
+  $('feedback').hidden=false;$('nextBtn').focus();
+}
+function endRound(){
+  if(!st||st.over)return;
+  st.over=true;cancelAnimationFrame(raf);
+  var total=st.score+st.wrong,prev=readBest(st.len),isBest=st.score>prev;
+  if(isBest)writeBest(st.len,st.score);
+  $('tally').textContent=st.score+' right out of '+total+(isBest&&st.score>0?'. New best.':'');
+  $('eAcc').textContent=total?Math.round(100*st.score/total)+'%':'–';
+  $('eStreak').textContent=st.bestStreak;
+  $('eBest').textContent=Math.max(prev,st.score);
+  $('reviewHead').textContent=st.missed.length?'Review these':(total?'Nothing missed this round':'No questions answered');
+  $('review').innerHTML=st.missed.map(function(m){
+    return '<li><span class="ok">'+m.topic+'</span><div class="mf">'+m.review+'</div><p class="why">'+m.why+'</p></li>';
+  }).join('');
+  screen('end');showBest();
+}
+
+$('startBtn').addEventListener('click',startRound);
+$('againBtn').addEventListener('click',startRound);
+$('settingsBtn').addEventListener('click',function(){screen('start');showBest()});
+$('endBtn').addEventListener('click',endRound);
+$('nextBtn').addEventListener('click',nextQuestion);
+[].forEach.call(document.querySelectorAll('input[name=len]'),function(i){i.addEventListener('change',showBest)});
+document.addEventListener('keydown',function(e){
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  if(!st||st.over||$('play').hidden)return;
+  var k=e.key;
+  if(k==='Escape'){endRound();return}
+  if(st.paused){if(k===' '||k==='Enter'){e.preventDefault();nextQuestion()}return}
+  if(k>='1'&&k<='4'){e.preventDefault();answer(parseInt(k,10)-1)}
+  else if((k==='t'||k==='T'||k==='f'||k==='F')&&st.q.options[0].word){
+    var want=(k==='t'||k==='T')?'True':'False';
+    st.q.options.forEach(function(o,j){if(o.h===want)answer(j)});
+  }
+});
+showBest();
+})();
+</script>
+</body>
+</html>

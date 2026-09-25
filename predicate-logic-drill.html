@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Predicates and quantifiers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="drills.css">
+<style>
+.stage>*{width:100%}
+.given{font-family:var(--math);font-size:1.15rem;color:var(--muted);margin:0 0 .5rem;overflow-x:auto}
+.stage .formula{margin:0 0 1rem;overflow-x:auto}
+#warn{color:var(--bad)}
+.formula .words{font-size:.62em}
+.blank{display:inline-block;width:1.7em;border-bottom:1.5px solid currentColor;vertical-align:-.12em;margin:0 .1em}
+.nw{white-space:nowrap}
+.free{color:var(--bad);text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+</style>
+</head>
+<body>
+<main class="page">
+
+<section id="start">
+  <header class="masthead">
+    <p class="eyebrow"><a href="index.html">Analysis I</a> · Chapter 2 · Syntax and semantics of predicate logic</p>
+    <h1>Predicates and quantifiers</h1>
+    <p class="lede">Terms and predicates, free and bound variables, truth over a small domain, negating quantifiers and well-formed formulas, one question at a time. A miss pauses the clock and explains itself.</p>
+  </header>
+
+  <div class="settings">
+    <div class="field">
+      <span class="field-label">What to practise</span>
+      <div class="chips">
+        <label class="chip"><input type="checkbox" name="topic" value="terms" checked>Terms and predicates</label>
+        <label class="chip"><input type="checkbox" name="topic" value="free" checked>Free and bound</label>
+        <label class="chip"><input type="checkbox" name="topic" value="truth" checked>Truth over a domain</label>
+        <label class="chip"><input type="checkbox" name="topic" value="neg" checked>Negation</label>
+        <label class="chip"><input type="checkbox" name="topic" value="wff" checked>Well-formed or not</label>
+      </div>
+    </div>
+    <div class="field">
+      <span class="field-label">Round length</span>
+      <div class="chips">
+        <label class="chip"><input type="radio" name="len" value="60" checked>60 seconds</label>
+        <label class="chip"><input type="radio" name="len" value="120">2 minutes</label>
+        <label class="chip"><input type="radio" name="len" value="0">Untimed</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions"><button class="btn btn-lg" id="startBtn">Start round</button><span class="best" id="best"></span></div>
+  <p class="hint" id="warn" hidden>Pick at least one thing to practise.</p>
+  <p class="hint"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> pick an answer, <kbd>T</kbd> <kbd>F</kbd> on true-or-false questions, <kbd>Space</kbd> continues after a miss, <kbd>Esc</kbd> ends the round.</p>
+</section>
+
+<section id="play" hidden>
+  <div class="panel">
+    <div class="hud">
+      <div class="stat"><b id="score">0</b>score</div>
+      <div class="stat"><b id="streak">0</b>streak</div>
+      <div class="stat"><b id="time">1:00</b>time</div>
+      <button class="btn-link" id="endBtn">End round</button>
+    </div>
+    <div class="clock" id="clock"><i id="fill"></i></div>
+
+    <div class="stage">
+      <p class="prompt" id="prompt"></p>
+      <p class="given" id="given"></p>
+      <div class="formula" id="formula"></div>
+      <div class="options" id="options"></div>
+      <div class="feedback bad" id="feedback" aria-live="polite" hidden>
+        <h3 id="fbHead"></h3>
+        <p id="explain"></p>
+        <button class="btn" id="nextBtn">Next question (Space)</button>
+      </div>
+      <p class="flash" id="flash" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
+
+<section id="end" hidden class="results">
+  <p class="tally" id="tally"></p>
+  <div class="bignums">
+    <div><b id="eAcc"></b><span>accuracy</span></div>
+    <div><b id="eStreak"></b><span>best streak</span></div>
+    <div><b id="eBest"></b><span>best for this length</span></div>
+  </div>
+  <h2 id="reviewHead">Review these</h2>
+  <ul class="missed" id="review"></ul>
+  <div class="actions">
+    <button class="btn" id="againBtn">Play again</button>
+    <button class="btn btn-outline" id="settingsBtn">Change settings</button>
+  </div>
+</section>
+
+<footer class="site-footer"><span></span><a href="index.html">All Analysis I drills</a></footer>
+</main>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- helpers ---------- */
+function rnd(n){return Math.floor(Math.random()*n)}
+function pick(a){return a[rnd(a.length)]}
+function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=rnd(i+1),t=a[i];a[i]=a[j];a[j]=t}return a}
+function plain(h){return h.replace(/<[^>]+>/g,'').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&')}
+var I=function(s){return '<i>'+s+'</i>'};
+var X=I('x'),Y=I('y'),Z=I('z'),P=I('P'),Q=I('Q'),D=I('D');
+var BL='<span class="blank"></span>';
+function nw(s){return '<span class="nw">'+s+'</span>'}
+function words(s){return '<span class="words">'+s+'</span>'}
+function listAnd(xs){return xs.length<2?xs.join(''):xs.slice(0,-1).join(', ')+' and '+xs[xs.length-1]}
+
+/* Options: [{h, ok}] with exactly one ok and all texts distinct. */
+function mc(correct,wrongs){
+  var seen={},opts=[{h:correct,ok:true}];seen[correct]=1;
+  wrongs.forEach(function(w){if(opts.length<4&&!seen[w]){seen[w]=1;opts.push({h:w,ok:false})}});
+  return shuffle(opts);
+}
+function tf(truth){return [{h:'True',ok:truth,word:true},{h:'False',ok:!truth,word:true}]}
+
+/* ---------- terms and predicates (bank) ---------- */
+var KINDS=['a constant','a variable','a predicate','a formula'];
+var KIND=[
+  ['2',P+'(2, '+X+')','a constant','2 names one fixed object. A term that is not a variable is a constant.'],
+  [X,P+'(2, '+X+')','a variable',X+' is a variable: a term that can stand for any object of the domain.'],
+  [P,P+'(2, '+X+')','a predicate',P+' is a statement with blanks. Here its two blanks are filled with the terms 2 and '+X+'.'],
+  [I('c'),'∀'+Y+' '+Q+'('+Y+', '+I('c')+')','a constant','Letters such as '+I('c')+' and '+I('d')+' are constants: each names one fixed object. Quantifiers never bind them.'],
+  [Y,'∀'+Y+' '+Q+'('+Y+', '+I('c')+')','a variable',Y+' is a variable. Here it is bound by ∀'+Y+'.'],
+  [I('d'),'∃'+Z+' ('+I('R')+'('+Z+') ∧ '+I('S')+'('+Z+', '+I('d')+'))','a constant',I('d')+' is a constant, a term that names one fixed object.'],
+  [I('S'),'∃'+Z+' ('+I('R')+'('+Z+') ∧ '+I('S')+'('+Z+', '+I('d')+'))','a predicate',I('S')+' is a binary predicate: its two blanks are filled with the terms '+Z+' and '+I('d')+'.'],
+  [Q+'('+Y+', '+I('c')+')',Q+'('+Y+', '+I('c')+')','a formula','Filling the blanks of the predicate '+Q+' with the terms '+Y+' and '+I('c')+' gives an atomic formula.'],
+  [P+'('+X+')','¬'+P+'('+X+') ∨ '+Q+'(3)','a formula','A predicate with its blank filled by a term is an atomic formula.']
+];
+var ARITY=['unary','binary','ternary','no blanks: a proposition'];
+var AR=[
+  [BL+' is prime',0],
+  [BL+' is less than '+BL,1],
+  [BL+' lies between '+BL+' and '+BL,2],
+  [BL+' divides '+BL,1],
+  [BL+' + '+BL+' = '+BL,2],
+  [BL+' is the average of '+BL+' and '+BL,2],
+  [BL+' and '+BL+' are both odd',1],
+  [BL+' is a perfect square',0],
+  ['7 is prime',3],
+  [BL+' is a multiple of 3',0]
+];
+var PROP=[
+  ['“'+BL+' is even” on ℤ','A',I('A')+'(2)',true,'The blank is filled with the constant 2, so '+I('A')+'(2) says “2 is even”, which has a truth value (true).'],
+  ['“'+BL+' is even” on ℤ','A',I('A')+'('+X+')',false,X+' is a free variable. Until '+X+' is given a value, '+I('A')+'('+X+') has no truth value.'],
+  ['“'+BL+' is even” on ℤ','A','∀'+X+' '+I('A')+'('+X+')',true,'The only variable is bound by ∀'+X+', so the formula is closed. It is a proposition, and a false one.'],
+  ['“'+BL+' is even” on ℤ','A','∃'+X+' '+I('A')+'('+X+')',true,'The formula is closed, so it is a proposition. It is true: take '+X+' = 2.'],
+  ['“'+BL+' is even” on ℤ','A',I('A')+'('+X+') ∧ '+I('A')+'(2)',false,'The '+X+' in '+I('A')+'('+X+') is free, so the formula is not closed and has no truth value.'],
+  ['“'+BL+' is less than '+BL+'” on ℤ','L',I('L')+'(3, 5)',true,'Both blanks are filled with constants, so '+I('L')+'(3, 5) says “3 is less than 5”, a true proposition.'],
+  ['“'+BL+' is less than '+BL+'” on ℤ','L',I('L')+'('+X+', 5)',false,X+' is free, so '+I('L')+'('+X+', 5) is not a proposition.'],
+  ['“'+BL+' is less than '+BL+'” on ℤ','L','∀'+X+' '+I('L')+'('+X+', 5)',true,'The formula is closed, so it is a proposition. It is false: '+X+' = 6 is not less than 5.'],
+  ['“'+BL+' is less than '+BL+'” on ℤ','L','∃'+Y+' '+I('L')+'('+X+', '+Y+')',false,Y+' is bound but '+X+' is free, so the formula is not closed.']
+];
+function qTerms(){
+  var r=Math.random();
+  if(r<0.4){
+    var k=pick(KIND),kw=KINDS.filter(function(w){return w!==k[2]});
+    var whole=k[0]===k[1];
+    return {id:'kind:'+k[0]+k[1],topic:'Terms and predicates',prompt:whole?'What is this expression?':'What is '+k[0]+' in this formula?',given:'',formula:k[1],
+      options:mc(k[2],shuffle(kw)),explain:k[3],review:k[0]+' in '+k[1]+' is '+k[2]+'.'};
+  }
+  if(r<0.7){
+    var a=pick(AR),c=ARITY[a[1]];
+    var n=(a[0].match(/class="blank"/g)||[]).length;
+    var why=n?'Count the blanks: there '+(n===1?'is one':'are '+['','one','two','three'][n])+', so the predicate is '+c+'.':'There are no blanks to fill: this is already a statement with a truth value.';
+    return {id:'ar:'+a[0],topic:'Terms and predicates',prompt:'What kind of predicate is this?',given:'',formula:words('“'+a[0]+'”'),
+      options:mc(c,ARITY.filter(function(w){return w!==c})),explain:why,review:'“'+a[0]+'” is '+c+'.'};
+  }
+  var p=pick(PROP);
+  return {id:'prop:'+p[2],topic:'Terms and predicates',prompt:'True or false? This is a proposition.',given:I(p[1])+' is the predicate '+p[0]+'.',formula:p[2],
+    options:tf(p[3]),explain:p[4]+' Only closed formulas are propositions.',review:p[2]+(p[3]?' is':' is not')+' a proposition.'};
+}
+
+/* ---------- free and bound (generated syntax trees) ---------- */
+/* Nodes: {t:'atom',p,args} {t:'not',a} {t:'bin',op,a,b} {t:'q',q,v,a} */
+function isVar(t){return t==='x'||t==='y'||t==='z'}
+function uniq(xs){var s={};xs.forEach(function(x){s[x]=1});return Object.keys(s).sort()}
+function freeVars(f){
+  switch(f.t){
+    case 'atom':return uniq(f.args.filter(isVar));
+    case 'not':return freeVars(f.a);
+    case 'bin':return uniq(freeVars(f.a).concat(freeVars(f.b)));
+    case 'q':return freeVars(f.a).filter(function(v){return v!==f.v});
+  }
+}
+function allVars(f){
+  switch(f.t){
+    case 'atom':return uniq(f.args.filter(isVar));
+    case 'not':return allVars(f.a);
+    case 'bin':return uniq(allVars(f.a).concat(allVars(f.b)));
+    case 'q':return uniq(allVars(f.a).concat([f.v]));
+  }
+}
+function quants(f){
+  switch(f.t){
+    case 'atom':return [];
+    case 'not':return quants(f.a);
+    case 'bin':return quants(f.a).concat(quants(f.b));
+    case 'q':return [f].concat(quants(f.a));
+  }
+}
+function leadsQ(f){return f.t==='q'||(f.t==='not'&&leadsQ(f.a))}
+/* Print with every inner binary connective in parentheses, and a quantified formula in parentheses when it is an operand. */
+function fmt(f,mark,bound){
+  bound=bound||[];
+  function term(t){
+    if(!isVar(t))return /^\d+$/.test(t)?t:I(t);
+    return mark&&bound.indexOf(t)<0?'<span class="free">'+I(t)+'</span>':I(t);
+  }
+  function sub(g,b){return fmt(g,mark,b||bound)}
+  switch(f.t){
+    case 'atom':return nw(I(f.p)+'('+f.args.map(term).join(', ')+')');
+    case 'not':return '¬'+(f.a.t==='bin'?'('+sub(f.a)+')':sub(f.a));
+    case 'q':var b=bound.concat([f.v]);return f.q+I(f.v)+' '+(f.a.t==='bin'?'('+sub(f.a,b)+')':sub(f.a,b));
+    case 'bin':
+      var op=function(g){return g.t==='bin'||leadsQ(g)?'('+sub(g)+')':sub(g)};
+      return op(f.a)+' '+f.op+' '+op(f.b);
+  }
+}
+function genAtom(vars){
+  function t(){return Math.random()<0.1?'c':pick(vars)}
+  return Math.random()<0.45?{t:'atom',p:'Q',args:[t()]}:{t:'atom',p:'P',args:[t(),t()]};
+}
+function genF(d,vars){
+  var r=Math.random();
+  if(d<=0||r<0.18)return genAtom(vars);
+  if(r<0.3)return {t:'not',a:genF(d-1,vars)};
+  if(r<0.6)return {t:'bin',op:pick(['∧','∨','→','↔']),a:genF(d-1,vars),b:genF(d-1,vars)};
+  var body=genF(d-1,vars),fv=freeVars(body);
+  if(!fv.length)return body;
+  return {t:'q',q:pick(['∀','∃']),v:pick(fv),a:body};
+}
+function genFormula(wantClosed){
+  var best=null;
+  for(var tries=0;tries<400;tries++){
+    var vars=Math.random()<0.3?['x','y','z']:['x','y'];
+    var f=genF(3,vars),qs=quants(f),av=allVars(f),fv=freeVars(f),len=plain(fmt(f)).length;
+    if(!qs.length||av.length<2||len>34||len<9)continue;
+    if(wantClosed!==undefined&&(fv.length===0)!==wantClosed)continue;
+    /* prefer formulas where a variable is free in one place and bound in another */
+    var mixed=fv.some(function(v){return qs.some(function(q){return q.v===v})});
+    best=f;
+    if(mixed||Math.random()<0.35)return f;
+  }
+  return best||{t:'bin',op:'∧',a:{t:'q',q:'∀',v:'x',a:{t:'atom',p:'P',args:['x','y']}},b:{t:'atom',p:'Q',args:['x']}};
+}
+function varsLabel(vs){return vs.length?(vs.length===1?I(vs[0])+' only':listAnd(vs.map(I))):'none: it is closed'}
+function freeExplain(f){
+  var fv=freeVars(f),qs=quants(f);
+  var s=(fv.length?'Free occurrences are underlined: ':'No occurrence is free: ')+'<span class="m">'+fmt(f,true)+'</span>. ';
+  s+=qs.map(function(q){return 'The scope of '+q.q+I(q.v)+' is <span class="m">'+fmt(q.a)+'</span>, and every '+I(q.v)+' there is bound.'}).join(' ');
+  var mixed=fv.filter(function(v){return qs.some(function(q){return q.v===v})});
+  if(mixed.length)s+=' '+listAnd(mixed.map(I))+' '+(mixed.length===1?'is':'are')+' bound in one place but free in another, and one free occurrence is enough.';
+  s+=fv.length>1?' So the free variables are '+listAnd(fv.map(I))+'.':fv.length?' So the only free variable is '+I(fv[0])+'.':' So the formula is closed.';
+  return s;
+}
+function qFree(){
+  var given=P+' is a binary predicate, '+Q+' is unary and '+I('c')+' is a constant.';
+  if(Math.random()<0.35){
+    var closed=Math.random()<0.5,g=genFormula(closed),isC=freeVars(g).length===0;
+    return {id:'free:'+plain(fmt(g)),topic:'Free and bound',prompt:'True or false? This formula is closed.',given:given,formula:fmt(g),
+      options:tf(isC),explain:freeExplain(g),review:fmt(g)+(isC?' is closed.':' is not closed.'),data:{kind:'closed',plain:plain(fmt(g))}};
+  }
+  var f=genFormula(),fv=freeVars(f),av=allVars(f);
+  var subsets=[[]];av.forEach(function(v){subsets=subsets.concat(subsets.map(function(s){return s.concat([v])}))});
+  var key=function(s){return s.join(',')},ck=key(fv);
+  var others=subsets.filter(function(s){return key(s)!==ck});
+  /* near misses first: everything that occurs, closed, one variable more or fewer */
+  var near=others.filter(function(s){return s.length===av.length||s.length===0||Math.abs(s.length-fv.length)===1});
+  var wrongs=shuffle(near).concat(shuffle(others)).map(varsLabel);
+  return {id:'free:'+plain(fmt(f)),topic:'Free and bound',prompt:'Which variables are free?',given:given,formula:fmt(f),
+    options:mc(varsLabel(fv),wrongs),explain:freeExplain(f),review:fmt(f)+': free '+(fv.length?listAnd(fv.map(I)):'none (closed)'),data:{kind:'which',plain:plain(fmt(f)),free:fv}};
+}
+
+/* ---------- truth over a finite domain (brute force) ---------- */
+var PREDS=[
+  {m:X+' &lt; '+Y,f:function(x,y){return x<y},pos:function(x,y){return x+' &lt; '+y},neg:function(x,y){return x+' ≥ '+y}},
+  {m:X+' ≤ '+Y,f:function(x,y){return x<=y},pos:function(x,y){return x+' ≤ '+y},neg:function(x,y){return x+' &gt; '+y}},
+  {m:Y+' = '+X+' + 1',f:function(x,y){return y===x+1},pos:function(x,y){return y+' = '+x+' + 1'},neg:function(x,y){return y+' ≠ '+x+' + 1'}},
+  {m:X+' + '+Y+' is even',f:function(x,y){return (x+y)%2===0},pos:function(x,y){return x+' + '+y+' is even'},neg:function(x,y){return x+' + '+y+' is odd'}},
+  {m:X+' ≠ '+Y,f:function(x,y){return x!==y},pos:function(x,y){return x+' ≠ '+y},neg:function(x,y){return x+' = '+y}},
+  {m:X+' divides '+Y+' (that is, '+Y+' = '+I('k')+X+' for some integer '+I('k')+')',noZero:true,f:function(x,y){return y%x===0},pos:function(x,y){return x+' divides '+y},neg:function(x,y){return x+' does not divide '+y}}
+];
+var PREFIXES=[[['∀','x'],['∃','y']],[['∃','y'],['∀','x']],[['∀','x'],['∀','y']],[['∃','x'],['∃','y']],[['∃','x'],['∀','y']],[['∀','y'],['∃','x']]];
+/* s = {D, pred, qs, neg}; neg: 0 none, 1 in front, 2 between the quantifiers, 3 on P */
+function truthAt(s,i,env){
+  var base;
+  if(i===2)base=s.pred.f(env.x,env.y);
+  else{
+    var q=s.qs[i],vals=s.D.map(function(d){var e={x:env.x,y:env.y};e[q[1]]=d;return truthAt(s,i+1,e)});
+    base=q[0]==='∀'?vals.every(Boolean):vals.some(Boolean);
+  }
+  return s.neg===i+1?!base:base;
+}
+function truthFormula(s,from,env){
+  env=env||{};
+  var parts=[];
+  for(var i=from;i<3;i++){
+    var n=s.neg===i+1?'¬':'';
+    if(i<2)parts.push(n+s.qs[i][0]+I(s.qs[i][1]));
+    else{var t=function(v){return v in env?String(env[v]):I(v)};parts.push(n+P+'('+t('x')+', '+t('y')+')')}
+  }
+  return parts.join(' ');
+}
+function truthExplain(s){
+  var v1=s.qs[0][1],v2=s.qs[1][1],q1=s.qs[0][0],q2=s.qs[1][0];
+  function sv(env,v){return v in env?String(env[v]):I(v)}
+  function cond(env){var a=sv(env,'x'),b=sv(env,'y');return s.neg===3?s.pred.neg(a,b):s.pred.pos(a,b)}
+  function fail(env){var a=sv(env,'x'),b=sv(env,'y');return s.neg===3?s.pred.pos(a,b):s.pred.neg(a,b)}
+  function atomTrue(env){var r=s.pred.f(env.x,env.y);return s.neg===3?!r:r}
+  function env1(a){var e={};e[v1]=a;return e}
+  function env2(a,b){var e=env1(a);e[v2]=b;return e}
+  function chiReason(a){
+    var bs=s.D.filter(function(b){return atomTrue(env2(a,b))===(q2==='∃')});
+    if(q2==='∃')return bs.length?I(v2)+' = '+bs[0]+' works, since '+cond(env2(a,bs[0])):'there is no '+I(v2)+' in '+D+' with '+cond(env1(a));
+    return bs.length?I(v2)+' = '+bs[0]+' fails, since '+fail(env2(a,bs[0])):cond(env1(a))+' for every '+I(v2)+' in '+D;
+  }
+  function phiVal(a){var c=truthAt(s,1,env1(a));return c}
+  function phiReason(a){
+    if(s.neg!==2)return chiReason(a);
+    return truthFormula(s,1,env1(a))+' is '+(phiVal(a)?'true':'false')+', because '+chiReason(a);
+  }
+  var gS={D:s.D,pred:s.pred,qs:s.qs,neg:s.neg===1?0:s.neg};
+  var gForm=truthFormula(gS,0),gVal=truthAt(gS,0,{});
+  var decisive=s.D.filter(function(a){return phiVal(a)===(q1==='∃')});
+  var out;
+  if(decisive.length){
+    out='For '+I(v1)+' = '+decisive[0]+', '+phiReason(decisive[0])+'.';
+  }else{
+    out='Check each '+I(v1)+' in '+D+'. '+s.D.map(function(a){return I(v1)+' = '+a+': '+phiReason(a)}).join('; ')+'.';
+  }
+  if(s.neg===1)out+=' So '+gForm+' is '+(gVal?'true':'false')+', and the ¬ in front flips it: '+truthFormula(s,0)+' is '+(!gVal?'true':'false')+'.';
+  else out+=' So '+gForm+' is '+(gVal?'true':'false')+'.';
+  return out;
+}
+function qTruth(){
+  var want=Math.random()<0.5,s,val;
+  for(var t=0;t<40;t++){
+    var pred=pick(PREDS);
+    s={pred:pred,D:pred.noZero?[1,2,3]:pick([[1,2,3],[0,1,2,3]]),qs:pick(PREFIXES),neg:Math.random()<0.5?0:1+rnd(3)};
+    val=truthAt(s,0,{});
+    if(val===want)break;
+  }
+  var form=truthFormula(s,0);
+  var given=D+' = {'+s.D.join(', ')+'}, &nbsp;'+P+'('+X+', '+Y+') means '+s.pred.m;
+  return {id:'truth:'+plain(form+given),topic:'Truth over a domain',prompt:'True or false in this domain?',given:given,formula:form,options:tf(val),
+    explain:truthExplain(s),review:form+' with '+given+': '+(val?'true':'false'),
+    data:{D:s.D,pred:plain(s.pred.m),qs:s.qs,neg:s.neg,plain:plain(form)}};
+}
+
+/* ---------- negation (moving ¬ from the outside in) ---------- */
+var FLIP={'∀':'∃','∃':'∀'};
+function fmtPrefix(qs,bounded,op){
+  return qs.map(function(q){return nw(q.q+I(q.v)+(bounded?' '+op+' '+I(q.s)+',':''))}).join(' ');
+}
+function fmtN(qs,negIn,bounded,op,atom){return fmtPrefix(qs,bounded,op||'∈')+' '+nw((negIn?'¬':'')+atom)}
+function flipAll(qs){return qs.map(function(q){return {q:FLIP[q.q],v:q.v,s:q.s}})}
+function qNeg(){
+  var n=2+rnd(2),bounded=Math.random()<0.4,vs=['x','y','z'],sets=['A','B','C'];
+  var qs=vs.slice(0,n).map(function(v,i){return {q:pick(['∀','∃']),v:v,s:sets[i]}});
+  var atom=P+'('+vs.slice(0,n).map(I).join(', ')+')';
+  var f=function(list,negIn,op){return fmtN(list,negIn,bounded,op,atom)};
+  var flipped=flipAll(qs),correct=f(flipped,true);
+  var allSame=qs.every(function(q){return q.q===qs[0].q});
+  var firstOnly=[flipped[0]].concat(qs.slice(1)),lastOnly=qs.slice(0,-1).concat([flipped[n-1]]);
+  var main=[f(firstOnly,true),f(flipped,false),f(qs,true)];
+  if(!allSame)main.push(f(flipped.slice().reverse(),true));
+  var extra=[f(firstOnly,false),f(lastOnly,true)];
+  if(bounded)extra.unshift(f(flipped,true,'∉'));
+  var wrongs=shuffle(main).concat(shuffle(extra));
+  if(bounded&&Math.random()<0.5)wrongs=[f(flipped,true,'∉')].concat(wrongs);
+  /* the chain of steps */
+  var steps=[];
+  for(var k=0;k<=n;k++){
+    var head=fmtPrefix(flipped.slice(0,k),bounded,'∈'),rest=qs.slice(k),tail;
+    if(!rest.length)tail=nw('¬'+atom);
+    else if(bounded)tail='¬('+fmtN(rest,false,true,'∈',atom)+')';
+    else tail='¬'+fmtN(rest,false,false,'∈',atom);
+    steps.push((head?head+' ':'')+tail);
+  }
+  var orig=f(qs,false);
+  var explain='Move the ¬ in one quantifier at a time:<br><span class="m">'+steps.join('<br>⇔ ')+'</span><br>Every quantifier flips, the order stays the same, and the ¬ ends on '+P+'.'+
+    (bounded?' The sets stay as they are: “not every '+X+' in '+I('A')+'” means “some '+X+' in '+I('A')+' fails”.':'');
+  return {id:'neg:'+plain(orig),topic:'Negation',prompt:'Which formula is equivalent to the negation of this one?',given:'',formula:orig,
+    options:mc(correct,wrongs),math:true,explain:explain,review:'¬('+orig+') ⇔ '+correct,data:{plain:plain(orig),n:n,bounded:bounded}};
+}
+
+/* ---------- well-formed or not (bank) ---------- */
+var WFF=[
+  ['∀'+X+' '+P+'('+X+')',true,'A quantifier with a variable, followed by a formula, is a formula.'],
+  ['∀2 '+P+'(2)',false,'A quantifier needs a variable after it. 2 is a constant.'],
+  ['∀'+I('c')+' '+P+'('+I('c')+')',false,'A quantifier needs a variable after it, and '+I('c')+' is a constant.'],
+  [P+'('+Q+'('+X+'))',false,'The blanks of a predicate are filled with terms. '+Q+'('+X+') is a formula, not a term.'],
+  ['∃'+X+' ('+P+'('+X+') → '+Q+'('+X+'))',true,P+'('+X+') → '+Q+'('+X+') is a formula, and quantifying it over the variable '+X+' gives a formula.'],
+  ['∀'+X+' ∃'+Y,false,'Each quantifier must be followed by a formula, and nothing follows ∃'+Y+'.'],
+  ['¬∃'+X+' '+P+'('+X+', '+X+')',true,P+'('+X+', '+X+') is atomic (a term may fill two blanks), and ∃ and ¬ each build a formula from a formula.'],
+  [P+'('+X+', ∀'+Y+')',false,'∀'+Y+' is not a term, so it cannot fill a blank of '+P+'.'],
+  ['(∀'+X+' '+P+'('+X+')) ∨ '+Q+'('+I('c')+')',true,'Both sides of ∨ are formulas, so joining them gives a formula.'],
+  [P+'('+X+') ∧',false,'∧ joins two formulas, and there is nothing on its right.'],
+  ['∀'+X+' ('+P+'('+X+') ∧ '+Q+'('+Y+'))',true,'This is a formula. '+Y+' is free, but a formula does not have to be closed.'],
+  [P+'('+X+') ¬ '+Q+'('+X+')',false,'¬ is applied to a single formula. It does not join two formulas.'],
+  ['∀'+X+' ∀'+Y+' ('+P+'('+X+', '+Y+') → '+P+'('+Y+', '+X+'))',true,'The implication of two atomic formulas is a formula, and each quantifier builds a formula from a formula.'],
+  ['¬('+P+'('+X+') ∨ '+Q+'('+X+'))',true,'The disjunction of two atomic formulas is a formula, and so is its negation.'],
+  ['('+P+'('+X+') ∧ '+Q+'('+X+')',false,'The opening parenthesis is never closed.'],
+  [P+' ∧ '+Q+'('+X+')',false,P+' on its own is a predicate with empty blanks, not a formula. Its blanks must be filled with terms.'],
+  ['∀'+P+' '+P+'('+X+')',false,'Quantifiers range over variables. '+P+' is a predicate, not a variable.']
+];
+function qWff(){
+  var w=pick(WFF);
+  return {id:'wff:'+w[0],topic:'Well-formed or not',prompt:'True or false? This is a well-formed formula.',given:'',formula:w[0],options:tf(w[1]),
+    explain:w[2],review:w[0]+(w[1]?' is':' is not')+' well formed.'};
+}
+
+var MAKERS={terms:qTerms,free:qFree,truth:qTruth,neg:qNeg,wff:qWff};
+function makeQuestion(topics,lastId){
+  for(var i=0;i<12;i++){
+    var q=MAKERS[pick(topics)]();
+    if(q.id!==lastId&&q.options.filter(function(o){return o.ok}).length===1&&q.options.length>=2)return q;
+  }
+  return q;
+}
+window.__predTest={makeQuestion:makeQuestion,freeVars:freeVars,fmt:fmt,genFormula:genFormula};
+
+/* ---------- game ---------- */
+var $=function(id){return document.getElementById(id)};
+var st=null,raf=0;
+function bestKey(len){return 'predicate-drill-best-'+len}
+function readBest(len){try{return parseInt(localStorage.getItem(bestKey(len)),10)||0}catch(e){return 0}}
+function writeBest(len,v){try{localStorage.setItem(bestKey(len),String(v))}catch(e){}}
+function curLen(){return parseInt(document.querySelector('input[name=len]:checked').value,10)}
+function showBest(){var b=readBest(curLen());$('best').textContent=b?'Best for this length: '+b:''}
+function screen(name){['start','play','end'].forEach(function(s){$(s).hidden=s!==name});window.scrollTo(0,0);if(document.activeElement)document.activeElement.blur()}
+
+function startRound(){
+  var topics=[].slice.call(document.querySelectorAll('input[name=topic]:checked')).map(function(i){return i.value});
+  if(!topics.length){$('warn').hidden=false;return}
+  $('warn').hidden=true;
+  var len=curLen();
+  st={topics:topics,len:len,remaining:len*1000,paused:false,locked:false,score:0,wrong:0,streak:0,bestStreak:0,missed:[],q:null,last:0,over:false};
+  $('clock').style.visibility=len?'visible':'hidden';
+  screen('play');updateHud();nextQuestion();
+  cancelAnimationFrame(raf);raf=requestAnimationFrame(tick);
+}
+function tick(ts){
+  if(!st||st.over)return;
+  if(st.last&&!st.paused&&st.len>0)st.remaining-=Math.min(ts-st.last,250);
+  st.last=ts;
+  if(st.len>0){
+    $('fill').style.transform='scaleX('+Math.max(0,st.remaining/(st.len*1000))+')';
+    var s=Math.max(0,Math.ceil(st.remaining/1000));
+    $('time').textContent=Math.floor(s/60)+':'+('0'+s%60).slice(-2);
+    $('clock').classList.toggle('low',st.remaining<10000);
+    if(st.remaining<=0){endRound();return}
+  }else $('time').textContent='–';
+  raf=requestAnimationFrame(tick);
+}
+function updateHud(){$('score').textContent=st.score;$('streak').textContent=st.streak}
+
+function nextQuestion(){
+  if(!st||st.over)return;
+  var q=makeQuestion(st.topics,st.q?st.q.id:null);
+  st.q=q;st.locked=false;st.paused=false;
+  $('prompt').innerHTML=q.prompt;
+  $('given').innerHTML=q.given;$('given').hidden=!q.given;
+  $('formula').innerHTML=q.formula;
+  $('feedback').hidden=true;$('flash').textContent='';
+  var box=$('options');box.innerHTML='';
+  box.className='options'+(q.options.length===2||!q.math?' two':'');
+  q.options.forEach(function(o,i){
+    var b=document.createElement('button');
+    b.className='option'+(q.math&&!o.word?' math-option':'');
+    b.innerHTML='<span class="k">'+(i+1)+'</span><span>'+o.h+'</span><span class="tag"></span>';
+    b.addEventListener('click',function(){answer(i)});
+    box.appendChild(b);
+  });
+}
+function answer(i){
+  if(!st||st.over||st.locked||!st.q||i>=st.q.options.length)return;
+  st.locked=true;
+  var q=st.q,btns=$('options').children;
+  [].forEach.call(btns,function(b){b.disabled=true});
+  if(q.options[i].ok){
+    st.score++;st.streak++;st.bestStreak=Math.max(st.bestStreak,st.streak);
+    btns[i].classList.add('good');$('flash').textContent='Correct';updateHud();
+    setTimeout(nextQuestion,200);
+    return;
+  }
+  st.wrong++;st.streak=0;st.paused=true;updateHud();
+  btns[i].classList.add('bad');btns[i].querySelector('.tag').textContent='your answer';
+  q.options.forEach(function(o,j){
+    if(o.ok){btns[j].classList.add('good');btns[j].querySelector('.tag').textContent='correct answer'}
+    else if(j!==i)btns[j].classList.add('dim');
+  });
+  if(!st.missed.some(function(m){return m.review===q.review}))st.missed.push({topic:q.topic,review:q.review,why:q.explain});
+  $('fbHead').textContent='Not quite';
+  $('explain').innerHTML=q.explain;
+  $('feedback').hidden=false;$('nextBtn').focus();
+}
+function endRound(){
+  if(!st||st.over)return;
+  st.over=true;cancelAnimationFrame(raf);
+  var total=st.score+st.wrong,prev=readBest(st.len),isBest=st.score>prev;
+  if(isBest)writeBest(st.len,st.score);
+  $('tally').textContent=st.score+' right out of '+total+(isBest&&st.score>0?'. New best.':'');
+  $('eAcc').textContent=total?Math.round(100*st.score/total)+'%':'–';
+  $('eStreak').textContent=st.bestStreak;
+  $('eBest').textContent=Math.max(prev,st.score);
+  $('reviewHead').textContent=st.missed.length?'Review these':(total?'Nothing missed this round':'No questions answered');
+  $('review').innerHTML=st.missed.map(function(m){
+    return '<li><span class="ok">'+m.topic+'</span><div class="mf">'+m.review+'</div><p class="why">'+m.why+'</p></li>';
+  }).join('');
+  screen('end');showBest();
+}
+
+$('startBtn').addEventListener('click',startRound);
+$('againBtn').addEventListener('click',startRound);
+$('settingsBtn').addEventListener('click',function(){screen('start');showBest()});
+$('endBtn').addEventListener('click',endRound);
+$('nextBtn').addEventListener('click',nextQuestion);
+[].forEach.call(document.querySelectorAll('input[name=len]'),function(i){i.addEventListener('change',showBest)});
+document.addEventListener('keydown',function(e){
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  if(!st||st.over||$('play').hidden)return;
+  var k=e.key;
+  if(k==='Escape'){endRound();return}
+  if(st.paused){if(k===' '||k==='Enter'){e.preventDefault();nextQuestion()}return}
+  if(k>='1'&&k<='4'){e.preventDefault();answer(parseInt(k,10)-1)}
+  else if((k==='t'||k==='T'||k==='f'||k==='F')&&st.q.options[0].word){
+    var want=(k==='t'||k==='T')?'True':'False';
+    st.q.options.forEach(function(o,j){if(o.h===want)answer(j)});
+  }
+});
+showBest();
+})();
+</script>
+</body>
+</html>
