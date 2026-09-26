@@ -138,13 +138,13 @@ function tf(truth){return [{h:'True',ok:truth,word:true},{h:'False',ok:!truth,wo
 /* ---------- 1. name the rule (generated) ---------- */
 var RULES={
   UI:{name:'Universal instantiation (UI)',
-    say:function(){return 'Universal instantiation (UI): from ∀'+x+' '+P(x)+' derive '+P(I('t'))+' for any term '+I('t')+'.'}},
+    say:function(){return 'Universal instantiation (UI): from ∀'+x+' '+P(x)+' derive '+P(I('t'))+' for any term '+I('t')+' that is substitutable for '+x+': no variable of '+I('t')+' may end up under a quantifier of '+P(x)+'. For example, ∀'+x+' ∃'+I('y')+' ('+I('y')+' &gt; '+x+') is true over ℝ, but instantiating it at the term '+I('y')+' gives ∃'+I('y')+' ('+I('y')+' &gt; '+I('y')+'), which is false: the '+I('y')+' has been captured.'}},
   UG:{name:'Universal generalization (UG)',
-    say:function(){return 'Universal generalization (UG): from '+P(c)+', where '+c+' is arbitrary (nothing is assumed about '+c+' except that it lies in the domain), derive ∀'+x+' '+P(x)+'.'}},
+    say:function(){return 'Universal generalization (UG): from '+P(c)+', where '+c+' is arbitrary (nothing is assumed about '+c+' except that it lies in the domain, and '+c+' occurs in no hypothesis in force), derive ∀'+x+' '+P(x)+'.'}},
   EG:{name:'Existential generalization (EG)',
-    say:function(){return 'Existential generalization (EG): from '+P(c)+' derive ∃'+x+' '+P(x)+'.'}},
+    say:function(){return 'Existential generalization (EG): from '+P(c)+' derive ∃'+x+' '+P(x)+'. As with UI, the term that is replaced must not be captured by a quantifier of '+P(x)+'.'}},
   EI:{name:'Existential instantiation (EI)',
-    say:function(){return 'Existential instantiation (EI): from ∃'+x+' '+P(x)+' derive '+P(c)+' for some '+c+'. Here '+c+' names an unknown witness: we know '+P(c)+' and nothing else, and we do not choose it.'}}
+    say:function(){return 'Existential instantiation (EI): from ∃'+x+' '+P(x)+' derive '+P(c)+', where '+c+' is a new constant: it occurs in no earlier line, in no hypothesis in force, and not in the conclusion being proved. Here '+c+' names an unknown witness: we know '+P(c)+' and nothing else, and we do not choose it.'}}
 };
 /* Predicates: body(t) gives the formula with t plugged in; dom is the domain shown after the quantifier
    (empty for an abstract predicate); all=true means the universal statement is true, so it may appear
@@ -243,7 +243,11 @@ var VALID=[
   {ctx:'',p:['∃'+x+' '+P(x),FXPQ],c:'∃'+x+' '+Q(x),t:true,
     why:'EI gives '+P(c)+' for a new letter '+c+'. UI with '+c+' gives '+P(c)+' → '+Q(c)+', modus ponens gives '+Q(c)+', and EG gives ∃'+x+' '+Q(x)+'.'},
   {ctx:'',p:['∀'+x+' ∀'+y+' '+L(x,y)],c:L(a,a),t:true,
-    why:'UI with the term '+a+' gives ∀'+y+' '+L(a,y)+', and UI again with '+a+' gives '+L(a,a)+'. Nothing forbids using the same term twice.'}
+    why:'UI with the term '+a+' gives ∀'+y+' '+L(a,y)+', and UI again with '+a+' gives '+L(a,a)+'. Nothing forbids using the same term twice.'},
+  {ctx:'Over ℝ. The step instantiates '+x+' at the term '+y+'.',p:['∀'+x+' ∃'+y+' ('+y+' &gt; '+x+')'],c:'∃'+y+' ('+y+' &gt; '+y+')',t:false,
+    why:'The term '+y+' is not substitutable for '+x+' here: once it is put in, it falls under the quantifier ∃'+y+' and is captured. The premise is true over ℝ and the conclusion is false. Rename the bound variable first, ∀'+x+' ∃'+I('z')+' ('+I('z')+' &gt; '+x+'), and then UI at '+y+' gives ∃'+I('z')+' ('+I('z')+' &gt; '+y+'), which is fine.'},
+  {ctx:'Over ℝ. The step instantiates '+x+' at the term '+x+' + 1.',p:['∀'+x+' ∃'+y+' ('+y+' &gt; '+x+')'],c:'∃'+y+' ('+y+' &gt; '+x+' + 1)',t:true,
+    why:'The term '+x+' + 1 contains no '+y+', so nothing is captured and UI applies: whatever holds of every real number holds of the one '+x+' + 1 names.'}
 ];
 function qValid(){
   var r=pick(VALID);
