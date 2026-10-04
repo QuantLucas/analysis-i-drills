@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hasse diagrams</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="drills.css">
+<style>
+.stage>*{width:100%}
+.given{font-family:var(--math);font-size:1.15rem;color:var(--muted);margin:0 0 .5rem;overflow-x:auto}
+.stage .formula{margin:0 0 1rem;overflow-x:auto}
+.formula .stem{font-family:var(--ui);font-size:clamp(1.15rem,3.4vw,1.45rem);margin:0 auto}
+.diagram{display:flex;justify-content:center;margin:0 0 1rem;overflow-x:auto}
+.diagram svg{max-width:100%;height:auto}
+.diagram line{stroke:var(--ink);stroke-width:1.6}
+.diagram rect{fill:var(--surface)}
+.diagram text{fill:var(--ink);font-family:var(--math);font-size:17px}
+.diagram .hl rect{fill:var(--tint);stroke:var(--navy);stroke-width:1.6}
+.diagram .hl text{fill:var(--navy);font-weight:600}
+#warn{color:var(--bad)}
+</style>
+</head>
+<body>
+<main class="page">
+
+<section id="start">
+  <header class="masthead">
+    <p class="eyebrow"><a href="index.html">Analysis I</a> · Chapter 3 · Hasse diagrams</p>
+    <h1>Hasse diagrams</h1>
+    <p class="lede">In a Hasse diagram, <i>y</i> sits above <i>x</i> and is joined to it exactly when <i>y</i> covers <i>x</i>: <i>x</i> ≺ <i>y</i> with nothing strictly between. Then <i>x</i> ⪯ <i>y</i> exactly when you can climb from <i>x</i> to <i>y</i>. Read orders off diagrams, find maximal and greatest elements and least upper bounds, spot covers, and catch drawings that are not Hasse diagrams. A miss pauses the clock and explains itself. Keys 1 to 4 pick an answer.</p>
+  </header>
+
+  <div class="settings">
+    <div class="field">
+      <span class="field-label">What to practise</span>
+      <div class="chips">
+        <label class="chip"><input type="checkbox" name="topic" value="climb" checked>Reading the order</label>
+        <label class="chip"><input type="checkbox" name="topic" value="extremes" checked>Maximal and greatest</label>
+        <label class="chip"><input type="checkbox" name="topic" value="bounds" checked>Upper bounds</label>
+        <label class="chip"><input type="checkbox" name="topic" value="covers" checked>Covers</label>
+        <label class="chip"><input type="checkbox" name="topic" value="valid" checked>Is it a Hasse diagram?</label>
+      </div>
+    </div>
+    <div class="field">
+      <span class="field-label">Round length</span>
+      <div class="chips">
+        <label class="chip"><input type="radio" name="len" value="60" checked>60 seconds</label>
+        <label class="chip"><input type="radio" name="len" value="120">2 minutes</label>
+        <label class="chip"><input type="radio" name="len" value="0">Untimed</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions"><button class="btn btn-lg" id="startBtn">Start round</button><span class="best" id="best"></span></div>
+  <p class="hint" id="warn" hidden>Pick at least one thing to practise.</p>
+  <p class="hint"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> pick an answer, <kbd>T</kbd> <kbd>F</kbd> on true-or-false questions, <kbd>Space</kbd> continues after a miss, <kbd>Esc</kbd> ends the round.</p>
+</section>
+
+<section id="play" hidden>
+  <div class="panel">
+    <div class="hud">
+      <div class="stat"><b id="score">0</b>score</div>
+      <div class="stat"><b id="streak">0</b>streak</div>
+      <div class="stat"><b id="time">1:00</b>time</div>
+      <button class="btn-link" id="endBtn">End round</button>
+    </div>
+    <div class="clock" id="clock"><i id="fill"></i></div>
+
+    <div class="stage">
+      <p class="prompt" id="prompt"></p>
+      <p class="given" id="given"></p>
+      <div class="diagram" id="diagram"></div>
+      <div class="formula" id="formula"></div>
+      <div class="options" id="options"></div>
+      <div class="feedback bad" id="feedback" aria-live="polite" hidden>
+        <h3 id="fbHead"></h3>
+        <p id="explain"></p>
+        <button class="btn" id="nextBtn">Next question (Space)</button>
+      </div>
+      <p class="flash" id="flash" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
+
+<section id="end" hidden class="results">
+  <p class="tally" id="tally"></p>
+  <div class="bignums">
+    <div><b id="eAcc"></b><span>accuracy</span></div>
+    <div><b id="eStreak"></b><span>best streak</span></div>
+    <div><b id="eBest"></b><span>best for this length</span></div>
+  </div>
+  <h2 id="reviewHead">Review these</h2>
+  <ul class="missed" id="review"></ul>
+  <div class="actions">
+    <button class="btn" id="againBtn">Play again</button>
+    <button class="btn btn-outline" id="settingsBtn">Change settings</button>
+  </div>
+</section>
+
+<footer class="site-footer"><span></span><a href="index.html">All Analysis I drills</a></footer>
+</main>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- helpers ---------- */
+function rnd(n){return Math.floor(Math.random()*n)}
+function pick(a){return a[rnd(a.length)]}
+function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=rnd(i+1),t=a[i];a[i]=a[j];a[j]=t}return a}
+function range(a,b){var o=[];for(var x=a;x<=b;x++)o.push(x);return o}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+/* Options: [{h, ok}] with exactly one ok and all texts distinct. */
+function mc(correct,wrongs){
+  var seen={},opts=[{h:correct,ok:true}];seen[correct]=1;
+  shuffle(wrongs).forEach(function(w){if(opts.length<4&&!seen[w]){seen[w]=1;opts.push({h:w,ok:false})}});
+  return shuffle(opts);
+}
+function tf(truth){return [{h:'True',ok:truth,word:true},{h:'False',ok:!truth,word:true}]}
+
+/* ---------- posets ----------
+   A poset is {n, lab[i], le(i,j), sym (the order symbol), desc}. Elements are 0..n-1. */
+function finish(P){
+  var n=P.n,i,j,k;
+  P.lt=function(i,j){return i!==j&&P.le(i,j)};
+  P.cov=[];for(i=0;i<n;i++){P.cov.push([]);for(j=0;j<n;j++)P.cov[i].push(false)}
+  for(i=0;i<n;i++)for(j=0;j<n;j++)if(P.lt(i,j)){
+    var between=false;for(k=0;k<n;k++)if(P.lt(i,k)&&P.lt(k,j)){between=true;break}
+    P.cov[i][j]=!between;
+  }
+  P.up=function(i){return range(0,n-1).filter(function(j){return P.cov[i][j]})};
+  P.down=function(j){return range(0,n-1).filter(function(i){return P.cov[i][j]})};
+  P.maximal=range(0,n-1).filter(function(i){return P.up(i).length===0});
+  P.minimal=range(0,n-1).filter(function(i){return P.down(i).length===0});
+  P.greatest=range(0,n-1).filter(function(g){return range(0,n-1).every(function(y){return P.le(y,g)})})[0];
+  P.least=range(0,n-1).filter(function(g){return range(0,n-1).every(function(y){return P.le(g,y)})})[0];
+  P.L=function(i){return P.lab[i]};
+  return P;
+}
+function divisors(m){return range(1,m).filter(function(d){return m%d===0})}
+function posetDivisors(m){
+  var ds=divisors(m);
+  return finish({n:ds.length,lab:ds.map(String),le:function(i,j){return ds[j]%ds[i]===0},sym:'|',strict:'|',
+    desc:'the divisors of '+m+' under divisibility',key:'div'+m,vals:ds});
+}
+function posetUpTo(m){
+  var ds=range(1,m);
+  return finish({n:ds.length,lab:ds.map(String),le:function(i,j){return ds[j]%ds[i]===0},sym:'|',strict:'|',
+    desc:'{1, 2, …, '+m+'} under divisibility',key:'upto'+m,vals:ds});
+}
+function setLab(mask,base){var s=[];base.forEach(function(b,k){if(mask&(1<<k))s.push(b)});return s.length?'{'+s.join(', ')+'}':'∅'}
+function posetSubsets(base,masks){
+  if(!masks)masks=range(0,(1<<base.length)-1);
+  return finish({n:masks.length,lab:masks.map(function(m){return setLab(m,base)}),le:function(i,j){return (masks[i]&masks[j])===masks[i]},
+    sym:'⊆',strict:'⊊',desc:masks.length===(1<<base.length)?'𝒫({'+base.join(', ')+'}) under ⊆':'a family of subsets of {'+base.join(', ')+'} under ⊆',key:'sub'+masks.join('.')});
+}
+function posetRandom(){
+  /* Built in levels, with relations only between adjacent levels, so every cover spans one row of the drawing. */
+  for(var tries=0;tries<50;tries++){
+    var n=5+rnd(3),i,j,k,R=[],levels=3+rnd(2),lev=[];
+    for(i=0;i<n;i++)lev.push(i<levels?i:rnd(levels));
+    lev.sort(function(a,b){return a-b});
+    for(i=0;i<n;i++){R.push([]);for(j=0;j<n;j++)R[i].push(i===j)}
+    for(j=0;j<n;j++){
+      if(lev[j]===0)continue;
+      var below=range(0,n-1).filter(function(i){return lev[i]===lev[j]-1});
+      var must=pick(below);R[must][j]=true;
+      below.forEach(function(i){if(i!==must&&Math.random()<0.4)R[i][j]=true});
+    }
+    for(k=0;k<n;k++)for(i=0;i<n;i++)for(j=0;j<n;j++)if(R[i][k]&&R[k][j])R[i][j]=true;
+    var comp=0,inc=0;for(i=0;i<n;i++)for(j=i+1;j<n;j++){if(R[i][j])comp++;else inc++}
+    if(comp<n-1||inc<2)continue;
+    /* connected as a graph */
+    var seen=[0],q=[0];while(q.length){var a=q.pop();for(j=0;j<n;j++)if((R[a][j]||R[j][a])&&seen.indexOf(j)<0){seen.push(j);q.push(j)}}
+    if(seen.length<n)continue;
+    var letters=shuffle('abcdefgh'.split('')).slice(0,n);
+    var M=R;
+    return finish({n:n,lab:letters,le:function(i,j){return M[i][j]},sym:'⪯',strict:'≺',desc:'the poset drawn below',key:'rnd'+letters.join('')+JSON.stringify(R)});
+  }
+  return posetDivisors(12);
+}
+var DIV_N=[6,8,12,16,18,20,24,28,30,36,40,42,45,48,50,54,60,72];
+function anyPoset(forDiagram){
+  var r=Math.random();
+  if(r<0.34)return posetDivisors(pick(DIV_N));
+  if(r<0.48)return posetUpTo(6+rnd(5));
+  if(r<0.66){
+    if(Math.random()<0.5)return posetSubsets(pick([[1,2],[1,2,3],['a','b','c']]));
+    /* All subsets of two or three random sets (closed under subsets, so every cover adds one element),
+       sometimes without the empty set so that there are several minimal elements. */
+    for(var t=0;t<30;t++){
+      var gens=shuffle(range(3,15)).slice(0,2+rnd(2)),fam=range(0,15).filter(function(m){return gens.some(function(g){return (m&g)===m})});
+      if(Math.random()<0.4)fam=fam.slice(1);
+      if(fam.length>=5&&fam.length<=9)return posetSubsets([1,2,3,4],fam);
+    }
+    return posetSubsets([1,2,3]);
+  }
+  return posetRandom();
+}
+
+/* ---------- drawing ---------- */
+function layout(P){
+  var n=P.n,rank=[],i,changed=true;
+  for(i=0;i<n;i++)rank.push(0);
+  while(changed){changed=false;for(i=0;i<n;i++)P.down(i).forEach(function(d){if(rank[d]+1>rank[i]){rank[i]=rank[d]+1;changed=true}})}
+  var top=Math.max.apply(null,rank),rows=[];
+  for(var r=0;r<=top;r++)rows.push(range(0,n-1).filter(function(i){return rank[i]===r}));
+  var x=[];for(i=0;i<n;i++)x.push(0);
+  function place(){rows.forEach(function(row){row.forEach(function(e,k){x[e]=k-(row.length-1)/2})})}
+  place();
+  for(var it=0;it<4;it++){
+    for(r=1;r<=top;r++){rows[r].sort(function(a,b){return bary(a,P.down)-bary(b,P.down)})}
+    place();
+    for(r=top-1;r>=0;r--){rows[r].sort(function(a,b){return bary(a,P.up)-bary(b,P.up)})}
+    place();
+  }
+  function bary(e,f){var ns=f(e);if(!ns.length)return x[e];return ns.reduce(function(s,v){return s+x[v]},0)/ns.length}
+  return {rank:rank,x:x,top:top,rows:rows};
+}
+function draw(P,opt){
+  opt=opt||{};
+  var L=layout(P),wmax=0,i;
+  for(i=0;i<P.n;i++)wmax=Math.max(wmax,P.lab[i].length);
+  var cw=Math.max(66,wmax*9+30),rh=76,widest=Math.max.apply(null,L.rows.map(function(r){return r.length}));
+  var W=Math.max(200,widest*cw+20),H=(L.top+1)*rh+10;
+  function px(e){return W/2+L.x[e]*cw}
+  function py(e){return H-rh/2-L.rank[e]*rh+5}
+  var s='<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" role="img" aria-label="Hasse diagram">';
+  var edges=[];
+  for(i=0;i<P.n;i++)for(var j=0;j<P.n;j++)if(P.cov[i][j])edges.push([i,j]);
+  (opt.extra||[]).forEach(function(e){edges.push(e)});
+  edges.forEach(function(e){s+='<line x1="'+px(e[0])+'" y1="'+py(e[0])+'" x2="'+px(e[1])+'" y2="'+py(e[1])+'"/>'});
+  for(i=0;i<P.n;i++){
+    var w=P.lab[i].length*9+14,hl=opt.hl&&opt.hl.indexOf(i)>=0;
+    s+='<g'+(hl?' class="hl"':'')+'><rect x="'+(px(i)-w/2)+'" y="'+(py(i)-13)+'" width="'+w+'" height="26" rx="6"/>'+
+       '<text x="'+px(i)+'" y="'+(py(i)+6)+'" text-anchor="middle">'+esc(P.lab[i])+'</text></g>';
+  }
+  return s+'</svg>';
+}
+
+/* ---------- reasoning helpers ---------- */
+function climb(P,a,b){ /* a list of elements a = z0 ⋖ ... ⋖ zk = b, or null */
+  var prev={},q=[a];prev[a]=-1;
+  while(q.length){var u=q.shift();if(u===b)break;P.up(u).forEach(function(v){if(!(v in prev)){prev[v]=u;q.push(v)}})}
+  if(!(b in prev))return null;
+  var path=[b];while(path[0]!==a)path.unshift(prev[path[0]]);return path;
+}
+function pathText(P,path){return path.map(P.L).join(' ⋖ ')}
+function setText(P,xs){return xs.length?'{'+xs.map(P.L).join(', ')+'}':'∅'}
+function rel(P,a,b){return P.L(a)+' '+P.sym+' '+P.L(b)}
+function nrel(P,a,b){return P.L(a)+' '+(P.sym==='|'?'∤':P.sym==='⊆'?'⊈':'⋠')+' '+P.L(b)}
+function between(P,a,b){for(var k=0;k<P.n;k++)if(P.lt(a,k)&&P.lt(k,b))return k;return -1}
+function ubs(P,S){return range(0,P.n-1).filter(function(u){return S.every(function(s){return P.le(s,u)})})}
+function leastOf(P,T){return T.filter(function(u){return T.every(function(v){return P.le(u,v)})})[0]}
+function giv(P){return P.desc==='the poset drawn below'?'':'The diagram of '+P.desc+'.'}
+
+/* ---------- reading the order ---------- */
+function qClimb(){
+  var P=anyPoset(true),a,b,truth=Math.random()<0.5,tries=0;
+  do{a=rnd(P.n);b=rnd(P.n);tries++}while((a===b||P.le(a,b)!==truth||(truth&&P.cov[a][b]&&tries<30))&&tries<80);
+  if(a===b){a=0;b=P.n-1}
+  truth=P.le(a,b);
+  var ex;
+  if(truth)ex='True. Climb '+pathText(P,climb(P,a,b))+'. Each step is a segment going up, so '+rel(P,a,b)+' by transitivity'+(climb(P,a,b).length>2?', even though there is no single segment from '+P.L(a)+' to '+P.L(b)+'.':'.');
+  else if(P.le(b,a))ex='False. The climb goes the other way, '+pathText(P,climb(P,b,a))+', so '+rel(P,b,a)+'; by antisymmetry '+P.L(a)+' cannot also be below '+P.L(b)+'.';
+  else ex='False. There is no way to climb from '+P.L(a)+' to '+P.L(b)+', and none from '+P.L(b)+' to '+P.L(a)+': the two are incomparable.';
+  return {id:'climb:'+P.key+a+'-'+b,topic:'Reading the order',prompt:'True or false: '+rel(P,a,b)+'.',given:giv(P),diagram:draw(P,{hl:[a,b]}),formula:'',
+    options:tf(truth),explain:ex,review:rel(P,a,b)+' in '+P.desc+': '+(truth?'true':'false')};
+}
+
+/* ---------- maximal, minimal, greatest, least ---------- */
+function qExtremes(){
+  var P=anyPoset(true),kind=pick(['maximal','minimal','greatest','least','greatest']);
+  var NONE='none',opts,ex,correct;
+  var tops=P.maximal,bots=P.minimal;
+  if(kind==='maximal'||kind==='minimal'){
+    var set=kind==='maximal'?tops:bots,other=kind==='maximal'?bots:tops;
+    correct=setText(P,set);
+    var L=layout(P),topRow=L.rows[L.top],botRow=L.rows[0];
+    var outside=range(0,P.n-1).filter(function(i){return set.indexOf(i)<0});
+    var wr=[setText(P,other),setText(P,kind==='maximal'?topRow:botRow),setText(P,set.slice(0,1)),NONE];
+    if(outside.length)wr.push(setText(P,set.concat([pick(outside)]).sort(function(a,b){return a-b})));
+    if(set.length>1)wr.push(setText(P,set.slice(1)));
+    opts=mc(correct,wr);
+    ex='A '+kind+' element has no segment going '+(kind==='maximal'?'up':'down')+' from it. Here that is '+correct+'.'+
+       (kind==='maximal'&&topRow.length!==set.length?' Being on the top row is not the test: an element lower down is maximal if nothing is above it.':'')+
+       (kind==='minimal'&&botRow.length!==set.length?' Being on the bottom row is not the test: an element higher up is minimal if nothing is below it.':'');
+  }else{
+    var g=kind==='greatest'?P.greatest:P.least,ext=kind==='greatest'?tops:bots;
+    correct=g===undefined?NONE:P.L(g);
+    var wr2=ext.map(P.L).concat([NONE]).concat(range(0,P.n-1).map(P.L));
+    opts=mc(correct,wr2);
+    if(g!==undefined)ex=P.L(g)+' is the '+kind+' element: every element can be reached by climbing '+(kind==='greatest'?'up to':'down to')+' it. It is also the only '+(kind==='greatest'?'maximal':'minimal')+' element.';
+    else ex='There is no '+kind+' element. The '+(kind==='greatest'?'maximal':'minimal')+' elements are '+setText(P,ext)+', and '+(ext.length>1?'no one of them is '+(kind==='greatest'?'above':'below')+' the others: '+P.L(ext[0])+' and '+P.L(ext[1])+' are incomparable.':'it is not comparable with everything.');
+  }
+  opts.forEach(function(o){if(o.h===NONE)o.plain=true});
+  var noun=(kind==='maximal'||kind==='minimal')?'Which elements are '+kind+'?':'Which is the '+kind+' element?';
+  return {id:'ext:'+P.key+kind,topic:'Maximal and greatest',prompt:noun,given:giv(P),diagram:draw(P),formula:'',options:opts,math:true,explain:ex,
+    review:'The '+kind+' element'+(kind.slice(-2)==='al'?'s':'')+' of '+P.desc+': '+correct};
+}
+
+/* ---------- upper bounds ---------- */
+function qBounds(){
+  var P,S,tries=0;
+  do{P=anyPoset(true);var a=rnd(P.n),b=rnd(P.n);S=[a,b].sort(function(x,y){return x-y});tries++}
+  while((S[0]===S[1]||(P.le(S[0],S[1])||P.le(S[1],S[0]))&&Math.random()<0.75)&&tries<60);
+  if(S[0]===S[1])S=[0,P.n-1];
+  var U=ubs(P,S),sup=leastOf(P,U),NONE='none',kind=Math.random()<0.65?'sup':'ub';
+  var opts,ex,correct;
+  if(kind==='sup'){
+    correct=sup===undefined?NONE:P.L(sup);
+    var wr=U.map(P.L).concat(P.maximal.map(P.L)).concat(S.map(P.L)).concat([NONE]);
+    opts=mc(correct,wr);
+    ex='The upper bounds of '+setText(P,S)+' are the elements you can reach by climbing from both: '+setText(P,U)+'. ';
+    if(sup!==undefined)ex+='The least of them is '+P.L(sup)+', which is below every other upper bound.'+(S.indexOf(sup)>=0?' It belongs to the set, so it is the greatest element of the set too.':'');
+    else if(!U.length)ex='No element can be reached by climbing from both '+P.L(S[0])+' and '+P.L(S[1])+', so there are no upper bounds and hence no least one.';
+    else ex+='No one of them is below all the others, so there is no least upper bound.';
+  }else{
+    correct=setText(P,U);
+    var all=range(0,P.n-1),wr2=[setText(P,U.filter(function(u){return S.indexOf(u)<0})),setText(P,all.filter(function(u){return P.le(S[0],u)})),setText(P,all.filter(function(u){return P.le(S[1],u)})),setText(P,sup===undefined?[]:[sup]),setText(P,P.maximal)];
+    opts=mc(correct,wr2);
+    ex='An upper bound must be reachable by climbing from '+P.L(S[0])+' and from '+P.L(S[1])+'. That gives '+correct+'.'+(U.some(function(u){return S.indexOf(u)>=0})?' An element of the set counts if it is above the other element.':'');
+  }
+  opts.forEach(function(o){if(o.h===NONE)o.plain=true});
+  var prompt=kind==='sup'?'What is the least upper bound of '+setText(P,S)+'?':'Which elements are upper bounds of '+setText(P,S)+'?';
+  return {id:'ub:'+P.key+S.join('.')+kind,topic:'Upper bounds',prompt:prompt,given:giv(P)+' The highlighted elements form the set.',diagram:draw(P,{hl:S}),formula:'',options:opts,math:true,explain:ex,
+    review:(kind==='sup'?'Least upper bound':'Upper bounds')+' of '+setText(P,S)+' in '+P.desc+': '+correct};
+}
+
+/* ---------- covers (no diagram: the definition) ---------- */
+function qCovers(){
+  var P=Math.random()<0.6?posetDivisors(pick(DIV_N.filter(function(m){return divisors(m).length>=6}))):(Math.random()<0.5?posetSubsets([1,2,3]):posetUpTo(8+rnd(5)));
+  var covers=[],nonc=[],i,j;
+  for(i=0;i<P.n;i++)for(j=0;j<P.n;j++){if(P.cov[i][j])covers.push([i,j]);else if(P.lt(i,j))nonc.push([i,j])}
+  if(!covers.length||nonc.length<2)return qClimb();
+  var c=pick(covers),txt=function(p){return P.L(p[0])+' ⋖ '+P.L(p[1])};
+  var inc=[];for(i=0;i<P.n;i++)for(j=0;j<P.n;j++)if(i!==j&&!P.le(i,j)&&!P.le(j,i))inc.push([i,j]);
+  var wr=shuffle(nonc).slice(0,4).map(txt).concat(shuffle(inc).slice(0,1).map(txt)).concat(shuffle(covers).slice(0,3).map(function(p){return P.L(p[1])+' ⋖ '+P.L(p[0])}));
+  var opts=mc(txt(c),wr);
+  var ex=P.L(c[1])+' covers '+P.L(c[0])+': '+rel(P,c[0],c[1])+' and nothing lies strictly between. ';
+  var bad=opts.filter(function(o){return !o.ok}).map(function(o){
+    var m=o.h.split(' ⋖ '),a=P.lab.indexOf(m[0]),b=P.lab.indexOf(m[1]);
+    if(P.lt(a,b)){var k=between(P,a,b);return o.h+' fails because '+P.L(k)+' lies strictly between: '+P.L(a)+' '+P.strict+' '+P.L(k)+' '+P.strict+' '+P.L(b)+'.'}
+    if(P.lt(b,a))return o.h+' fails because '+P.L(b)+' is below '+P.L(a)+', not above it.';
+    return o.h+' fails because '+P.L(a)+' and '+P.L(b)+' are incomparable.';
+  });
+  return {id:'cov:'+P.key+txt(c),topic:'Covers',prompt:'Which is a cover?',given:'In '+P.desc+'.',diagram:'',formula:'',options:opts,math:true,explain:ex+bad.join(' '),
+    review:'In '+P.desc+': '+txt(c)};
+}
+
+/* ---------- is it a Hasse diagram? ---------- */
+function qValid(){
+  var P=anyPoset(true),nonc=[],i,j;
+  for(i=0;i<P.n;i++)for(j=0;j<P.n;j++)if(P.lt(i,j)&&!P.cov[i][j])nonc.push([i,j]);
+  var bad=nonc.length&&Math.random()<0.55,extra=bad?[pick(nonc)]:[];
+  var ex;
+  if(bad){var e=extra[0],path=climb(P,e[0],e[1]);
+    ex='False. The segment from '+P.L(e[0])+' to '+P.L(e[1])+' should not be there: '+P.L(e[1])+' does not cover '+P.L(e[0])+', because the climb '+pathText(P,path)+' already passes through '+path.slice(1,-1).map(P.L).join(', ')+'. A Hasse diagram draws covers only; relations that follow by transitivity are left out.';}
+  else ex='True. Every segment joins an element to one that covers it, nothing strictly between, and every cover is drawn. Relations that follow by climbing are rightly left out.';
+  return {id:'val:'+P.key+(bad?extra[0].join('-'):'ok'),topic:'Is it a Hasse diagram?',prompt:'True or false: this is the Hasse diagram of '+(P.desc==='the poset drawn below'?'a poset':P.desc)+'.',
+    given:P.desc==='the poset drawn below'?'Read “higher on the page” as “above”.':'',diagram:draw(P,{extra:extra}),formula:'',options:tf(!bad),
+    explain:ex,review:'A drawing of '+(P.desc==='the poset drawn below'?'a poset':P.desc)+(bad?' with an extra segment '+P.L(extra[0][0])+'–'+P.L(extra[0][1])+': not a Hasse diagram':': a Hasse diagram')};
+}
+
+var MAKERS={climb:qClimb,extremes:qExtremes,bounds:qBounds,covers:qCovers,valid:qValid};
+function makeQuestion(topics,lastId){
+  for(var i=0;i<12;i++){
+    var q=MAKERS[pick(topics)]();
+    if(q.id!==lastId&&q.options.filter(function(o){return o.ok}).length===1&&q.options.length>=2)return q;
+  }
+  return q;
+}
+window.__hasseTest={makeQuestion:makeQuestion,posetDivisors:posetDivisors,posetSubsets:posetSubsets,posetRandom:posetRandom,posetUpTo:posetUpTo,draw:draw,ubs:ubs,leastOf:leastOf,MAKERS:MAKERS};
+
+/* ---------- game ---------- */
+var $=function(id){return document.getElementById(id)};
+var st=null,raf=0;
+function bestKey(len){return 'hasse-drill-best-'+len}
+function readBest(len){try{return parseInt(localStorage.getItem(bestKey(len)),10)||0}catch(e){return 0}}
+function writeBest(len,v){try{localStorage.setItem(bestKey(len),String(v))}catch(e){}}
+function curLen(){return parseInt(document.querySelector('input[name=len]:checked').value,10)}
+function showBest(){var b=readBest(curLen());$('best').textContent=b?'Best for this length: '+b:''}
+function screen(name){['start','play','end'].forEach(function(s){$(s).hidden=s!==name});window.scrollTo(0,0);if(document.activeElement)document.activeElement.blur()}
+
+function startRound(){
+  var topics=[].slice.call(document.querySelectorAll('input[name=topic]:checked')).map(function(i){return i.value});
+  if(!topics.length){$('warn').hidden=false;return}
+  $('warn').hidden=true;
+  var len=curLen();
+  st={topics:topics,len:len,remaining:len*1000,paused:false,locked:false,score:0,wrong:0,streak:0,bestStreak:0,missed:[],q:null,last:0,over:false};
+  $('clock').style.visibility=len?'visible':'hidden';
+  screen('play');updateHud();nextQuestion();
+  cancelAnimationFrame(raf);raf=requestAnimationFrame(tick);
+}
+function tick(ts){
+  if(!st||st.over)return;
+  if(st.last&&!st.paused&&st.len>0)st.remaining-=Math.min(ts-st.last,250);
+  st.last=ts;
+  if(st.len>0){
+    $('fill').style.transform='scaleX('+Math.max(0,st.remaining/(st.len*1000))+')';
+    var s=Math.max(0,Math.ceil(st.remaining/1000));
+    $('time').textContent=Math.floor(s/60)+':'+('0'+s%60).slice(-2);
+    $('clock').classList.toggle('low',st.remaining<10000);
+    if(st.remaining<=0){endRound();return}
+  }else $('time').textContent='–';
+  raf=requestAnimationFrame(tick);
+}
+function updateHud(){$('score').textContent=st.score;$('streak').textContent=st.streak}
+
+function nextQuestion(){
+  if(!st||st.over)return;
+  var q=makeQuestion(st.topics,st.q?st.q.id:null);
+  st.q=q;st.locked=false;st.paused=false;
+  $('prompt').innerHTML=q.prompt;
+  $('given').innerHTML=q.given;$('given').hidden=!q.given;
+  $('diagram').innerHTML=q.diagram||'';$('diagram').hidden=!q.diagram;
+  $('formula').innerHTML=q.formula;$('formula').hidden=!q.formula;
+  $('feedback').hidden=true;$('flash').textContent='';
+  var box=$('options');box.innerHTML='';
+  box.className='options'+(q.options.length===2||!q.math?' two':'');
+  q.options.forEach(function(o,i){
+    var b=document.createElement('button');
+    b.className='option'+(q.math&&!o.word&&!o.plain?' math-option':'');
+    b.innerHTML='<span class="k">'+(i+1)+'</span><span>'+o.h+'</span><span class="tag"></span>';
+    b.addEventListener('click',function(){answer(i)});
+    box.appendChild(b);
+  });
+}
+function answer(i){
+  if(!st||st.over||st.locked||!st.q||i>=st.q.options.length)return;
+  st.locked=true;
+  var q=st.q,btns=$('options').children;
+  [].forEach.call(btns,function(b){b.disabled=true});
+  if(q.options[i].ok){
+    st.score++;st.streak++;st.bestStreak=Math.max(st.bestStreak,st.streak);
+    btns[i].classList.add('good');$('flash').textContent='Correct';updateHud();
+    setTimeout(nextQuestion,200);
+    return;
+  }
+  st.wrong++;st.streak=0;st.paused=true;updateHud();
+  btns[i].classList.add('bad');btns[i].querySelector('.tag').textContent='your answer';
+  q.options.forEach(function(o,j){
+    if(o.ok){btns[j].classList.add('good');btns[j].querySelector('.tag').textContent='correct answer'}
+    else if(j!==i)btns[j].classList.add('dim');
+  });
+  if(!st.missed.some(function(m){return m.review===q.review}))st.missed.push({topic:q.topic,review:q.review,why:q.explain});
+  $('fbHead').textContent='Not quite';
+  $('explain').innerHTML=q.explain;
+  $('feedback').hidden=false;$('nextBtn').focus();
+}
+function endRound(){
+  if(!st||st.over)return;
+  st.over=true;cancelAnimationFrame(raf);
+  var total=st.score+st.wrong,prev=readBest(st.len),isBest=st.score>prev;
+  if(isBest)writeBest(st.len,st.score);
+  $('tally').textContent=st.score+' right out of '+total+(isBest&&st.score>0?'. New best.':'');
+  $('eAcc').textContent=total?Math.round(100*st.score/total)+'%':'–';
+  $('eStreak').textContent=st.bestStreak;
+  $('eBest').textContent=Math.max(prev,st.score);
+  $('reviewHead').textContent=st.missed.length?'Review these':(total?'Nothing missed this round':'No questions answered');
+  $('review').innerHTML=st.missed.map(function(m){
+    return '<li><span class="ok">'+m.topic+'</span><div class="mf">'+m.review+'</div><p class="why">'+m.why+'</p></li>';
+  }).join('');
+  screen('end');showBest();
+}
+
+$('startBtn').addEventListener('click',startRound);
+$('againBtn').addEventListener('click',startRound);
+$('settingsBtn').addEventListener('click',function(){screen('start');showBest()});
+$('endBtn').addEventListener('click',endRound);
+$('nextBtn').addEventListener('click',nextQuestion);
+[].forEach.call(document.querySelectorAll('input[name=len]'),function(i){i.addEventListener('change',showBest)});
+document.addEventListener('keydown',function(e){
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  if(!st||st.over||$('play').hidden)return;
+  var k=e.key;
+  if(k==='Escape'){endRound();return}
+  if(st.paused){if(k===' '||k==='Enter'){e.preventDefault();nextQuestion()}return}
+  if(k>='1'&&k<='4'){e.preventDefault();answer(parseInt(k,10)-1)}
+  else if((k==='t'||k==='T'||k==='f'||k==='F')&&st.q.options[0].word){
+    var want=(k==='t'||k==='T')?'True':'False';
+    st.q.options.forEach(function(o,j){if(o.h===want)answer(j)});
+  }
+});
+showBest();
+})();
+</script>
+</body>
+</html>
